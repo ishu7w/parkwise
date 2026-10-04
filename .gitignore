@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.playwright/
+test-results/
+
+.superdesign/tmp/
+
+# Local reports and design session metadata
+docs/report-review/
+.superdesign/resume.json
+.DS_Store
+.env
+.env.*
+!.env.example

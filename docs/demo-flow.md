@@ -1,0 +1,10 @@
+# Six-minute faculty demonstration
+
+1. **0:00–0:35 — Home.** Show the live parking preview. Switch FCFS/Priority to demonstrate queue reordering, then click Launch the parking lab. Say: “This parking interface makes OS resource-management concepts interactive.”
+2. **0:35–1:20 — Dashboard.** Click Load demo data. Say: “Vehicles are simulated processes; bays are shared resources.” Add `DEMO-123`, priority 1. Allocate next request. Select an occupied bay and click Exit vehicle. Explain the reserved C4 bay and logical clock.
+3. **1:20–2:00 — Processes & scheduling.** Click a PID. Show PCB fields and state history. Explain NEW → READY → RUNNING → TERMINATED, and the waiting-resource branch.
+4. **2:00–3:00 — Scheduler.** Click Sample data. Run FCFS: P1, P2, P3, P4; average waiting 4.75. Select Priority, run: P1, P2, P4, P3; average waiting 4.25. P1 cannot be preempted by later emergency P2. Select Round Robin, quantum 2, run: repeated slices; average waiting 7. Show calculated turnaround and completion. Explain that the sandbox is CPU service, not parking duration.
+5. **3:00–4:05 — Synchronization.** With synchronization OFF, run. Both processes read free A1 and claim it. Turn ON, run again: P101 acquires the lock, updates A1 and releases it; P102 sees occupied and waits. Use Reset and Next step to pause on lock ownership if needed. Say: “This is a deterministic mutual-exclusion simulation, not a kernel mutex.”
+6. **4:05–4:50 — Producer–consumer.** Click Auto demo. Watch five requests fill the buffer; sixth production reports full. FIFO consumption empties it; extra consumption reports empty. Explain producer and consumer waiting conditions. Reset works during playback.
+7. **4:50–5:35 — Deadlock.** Create deadlock. Follow request and assignment arrows. Explain all four conditions. Resolve deadlock: P2 is rolled back, R2 is released, P1 proceeds.
+8. **5:35–6:00 — OS Concepts.** Show implemented topics and scope. Close with the distinction between simulations and real OS mechanisms. No backend, hardware, authentication or payment integration is required.

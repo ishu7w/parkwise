@@ -1,0 +1,11 @@
+import {chromium} from '@playwright/test';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({headless:true,channel:'chrome'});const page=await browser.newPage({viewport:{width:1440,height:1050}});const url=process.env.PARKWISE_URL||'http://localhost:5174';
+await page.goto(url);const names=['Dashboard','Processes & scheduling','Synchronization','Producer–consumer','Deadlock','OS Concepts'];
+await page.getByRole('button',{name:'Launch app',exact:true}).click();
+await page.getByRole('navigation').getByRole('button',{name:'Synchronization',exact:true}).click();await page.getByRole('button',{name:'Run simulation',exact:true}).click();await page.getByRole('status').filter({hasText:'Race condition.'}).waitFor();await page.getByRole('button',{name:'Reset',exact:true}).click();await page.getByRole('button',{name:'Run simulation',exact:true}).click();await page.getByRole('button',{name:'Reset',exact:true}).click();await page.waitForTimeout(800);assert.match(await page.locator('.sim-controls').innerText(),/0 \/ 5/);
+await page.getByRole('navigation').getByRole('button',{name:'Producer–consumer',exact:true}).click();await page.getByRole('button',{name:'Auto demo'}).click();await page.waitForTimeout(6000);assert.match(await page.getByRole('status').innerText(),/empty/);
+await page.getByRole('navigation').getByRole('button',{name:'Dashboard',exact:true}).click();await page.getByRole('button',{name:'Load demo data'}).click();await page.reload();await page.getByRole('button',{name:'A1 occupied by MH 12 AB 4821'}).waitFor();
+await page.getByRole('button',{name:'Add vehicle',exact:true}).click();await page.getByLabel('Vehicle number').fill('MH 12 AB 4821');await page.getByRole('button',{name:'Create process'}).click();assert.match(await page.getByRole('alert').innerText(),/already/);await page.getByRole('button',{name:'Cancel',exact:true}).click();
+await page.locator('.skip-link').focus();await page.keyboard.press('Enter');assert.equal(await page.locator('main').evaluate(e=>document.activeElement===e),true);assert.equal(decodeURIComponent(await page.evaluate(()=>location.hash.slice(1))),'Dashboard');
+console.log('PASS: timed race playback/reset; auto buffer demo; persistence; duplicate validation; skip link.');await browser.close();

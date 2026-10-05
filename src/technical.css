@@ -74,3 +74,19 @@
 .technical-app .legend {flex-wrap:wrap}
 @media(max-width:1100px){.technical-app .technical-brand small,.technical-app .technical-header>.system-status {display:none}.technical-app .reservation-form {grid-template-columns:1fr 1fr}.technical-app .reservation-form button {justify-self:start}}
 @media(max-width:650px){.technical-app .technical-header nav {max-width:100%;overflow-x:auto;white-space:nowrap;gap:18px;padding:8px 0}.technical-app .workspace-panels {grid-template-columns:1fr}.technical-app .reservation-form {grid-template-columns:1fr;padding:18px}.technical-app .capacity-grid {grid-template-columns:1fr 1fr}.technical-app .capacity-grid>div {padding:16px}.technical-app .reservation-row {flex-wrap:wrap;padding:18px;gap:16px}.technical-app .reservation-row .actions {width:100%}.technical-app .map-meta {flex-wrap:wrap;gap:12px}}
+
+.technical-app .allocation-advice {padding:16px;border:1px solid #1a3c2b33;background:#edf2eb;margin:16px 0}
+.technical-app .allocation-advice>span {font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em}
+.technical-app .allocation-advice strong {display:block;font-size:17px;line-height:1.5;margin-top:10px;overflow-wrap:anywhere}
+.technical-app .allocation-advice p {font-size:14px;line-height:1.65;margin:10px 0 0;color:#48594e}
+.technical-app .operations-summary {display:grid;grid-template-columns:repeat(4,1fr)}
+.technical-app .operations-summary>div {padding:24px;border-right:1px solid #3a3a3833;display:grid;gap:14px}
+.technical-app .operations-summary span {font-size:13px}
+.technical-app .operations-summary strong {font-size:32px;line-height:1.2;color:#1a3c2b}
+.technical-app .capacity-notice {border-top:1px solid #3a3a3833;padding:18px 24px;font-size:14px;line-height:1.7}
+.technical-app .expiry-time {display:block;margin-top:8px}
+.technical-app .backup-upload {display:grid;gap:10px;margin-top:24px;font-size:14px}
+.technical-app .backup-upload input {width:100%;min-width:0;font-size:13px}
+.technical-app .restore-review {border:1px solid #1a3c2b33;padding:16px;margin-top:16px;background:#edf2eb}
+.technical-app .reservation-form {grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:650px){.technical-app .reservation-form {grid-template-columns:1fr}.technical-app .operations-summary {grid-template-columns:1fr 1fr}.technical-app .operations-summary>div {padding:18px}.technical-app .operations-summary strong {font-size:28px}}

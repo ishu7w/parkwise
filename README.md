@@ -1,28 +1,43 @@
 # Parkwise
 
-A single-device parking operations workspace for a facility attendant. The primary app contains Overview, Vehicles, Reservations, Activity and Workspace. Educational simulation modules remain separate from the operational UI.
+A driver and parking-owner application with server-backed accounts, shared booking records and exact-bay arrival passes. The primary app contains no preloaded parking facilities or educational concept pages.
 
-## Run locally
+## Start locally
 
-Requires Node.js 22+ and npm. From this folder:
+Requires Node.js 22+ and npm.
 
 ```sh
 npm ci
-npm run demo
+npm run dev
 ```
 
-Open http://localhost:5174/. For presentation records, open http://localhost:5174/?workspace=sample#Overview. The sample workspace is saved separately from normal records.
+Open http://localhost:5174/. This starts both the API and website. With no DATABASE_URL configured, a persistent embedded PostgreSQL database is created in `.data/parkwise`. Local server data is excluded from Git. Accounts and bookings survive refreshes and server restarts.
 
-## Working features
+1. Open Parking owner and create an owner account.
+2. Add a facility using its actual entrance coordinates, address, rate, bay counts and entry instructions.
+3. Publish the facility to make it discoverable.
+4. In another browser or private window, create a driver account and reserve a bay.
+5. The reservation appears in the owner's Arrivals view. Confirm arrival and checkout; the driver's pass reflects those changes.
 
-- Vehicle arrivals, duplicate-plate protection, arrival-order, priority or balanced allocation. Balanced priority improves queue rank after each 10 minutes of waiting while keeping emergencies first.
-- Twelve-bay occupancy map; C4 limited to the Reserved category.
-- Timed visitor holds (15–120 minutes), automatic expiry, check-in to the held bay, and cancellation.
-- Explained next-assignment recommendations and daily arrivals, departures, queue waits and completed-stay figures.
-- Maintenance blocks that prevent allocation until reopened.
-- Vehicle search, status filters, queue cancellation, checkout and CSV export.
-- Timestamped activity, persistent browser storage and validated JSON backup download and restoration.
-- Responsive layouts, GSAP transitions and reduced-motion support.
+Use separate browser sessions for the two accounts. Both must reach the same server/database.
+
+## Features
+
+- Separate driver and owner experiences with server-enforced roles and resource ownership.
+- Discovery by address/name, arrival window, duration and standard/accessible/EV category.
+- Optional location-based sorting with manual search when permission is denied.
+- Transactional exact-bay reservations, overlap protection and independent booking references.
+- Driver passes with entrance map, driving directions, floor, assigned bay and arrival instructions.
+- Owner check-in/check-out, publication controls, facility details editing, maintenance blocks and activity records.
+- Automatic unclaimed-reservation expiry 30 minutes after booked arrival; checked-in vehicles continue to occupy their bay until checkout.
+- Price snapshots, in INR, payable at the facility; no online payment collection is claimed.
+- Shared database refresh every five seconds while the page is visible and on focus.
+
+## Production database and Vercel
+
+Copy `.env.example` to `.env` for local configuration, or set DATABASE_URL in the Vercel project environment. Use a managed PostgreSQL connection string with the provider's required TLS configuration. Never commit credentials.
+
+The Vercel function serves `/api/*` through `api/index.js`. The API requires DATABASE_URL in production and fails clearly when it is absent; it does not fall back to ephemeral or browser storage. The SQL schema initializes on connection. Use the same database for all production instances. The initial Vercel project remains on the earlier release until this rebuild's database is configured.
 
 ## Verify
 
@@ -30,12 +45,15 @@ Open http://localhost:5174/. For presentation records, open http://localhost:517
 npm test
 npm run typecheck
 npm run build
-# Keep the local server running first; browser tests use installed Google Chrome.
 npm run test:browser
 ```
 
-See [presentation guide](docs/presentation-guide.md) and [feature research](docs/prototype-features.md).
+Browser tests start an isolated API/database and website on port 5175 and use installed Google Chrome. Test accounts and facilities are temporary fixtures and are removed after verification. They are not product seed data. `test:legacy-browser` contains historical checks for the previous attendant UI and is not the new product's verification command.
 
-## Prototype boundaries
+See [detailed rebuild plan](docs/driver-owner-rebuild-plan.md) and [shared-platform verification](docs/shared-platform-verification.md).
 
-This version operates in one browser on one device. It does not include authentication, shared backend synchronization, payment collection, camera/sensor integrations or scheduled future bookings. Holds apply immediately and expire after the chosen duration; older untimed holds require manual check-in or cancellation. JSON backups can be validated and restored after an explicit replacement review. Use one editing tab at a time because simultaneous tabs do not coordinate updates. Clearing browser storage removes saved records.
+## Operating boundaries
+
+The facility owner supplies the entrance coordinates and physical bay labels. The internal plan is a schematic, not indoor GPS. The product currently supports one floor label per facility and up to 150 bays. Registration has no email verification/reset service yet; map directions open an external provider. Publication should use actual locations and posted matching bay labels. Parking payments, gate sensors and license-plate cameras are not integrated.
+
+The previous attendant implementation is preserved separately in `src/AttendantApp.jsx`; prior browser-local records are left intact and are not imported into shared accounts automatically.

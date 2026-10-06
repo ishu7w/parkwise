@@ -12,3 +12,7 @@ docs/report-review/
 .env
 .env.*
 !.env.example
+
+# Private server data and deployment settings
+.data/
+.vercel/

@@ -1,25 +1,215 @@
-import {useEffect,useState,useRef} from 'react';
-import gsap from 'gsap';
-import {CustomEase} from 'gsap/CustomEase';
-import {Command} from 'lucide-react';
-import useSmoothScroll from './hooks/useSmoothScroll';
-import Dashboard from './pages/Dashboard';
-import Reservations from './pages/Reservations';
-import Workspace from './pages/Workspace';
-import ParkingOperations from './components/ParkingOperations';
-import {Panel,PageTitle} from './components/UI';
-import {initial,migrate,exitVehicle,displayTime,sampleWorkspace,cancelArrival,expireHolds} from './domain/parking';
-gsap.registerPlugin(CustomEase);CustomEase.create('workspaceEase','0.22,1,0.36,1');
-const isSample=new URLSearchParams(location.search).get('workspace')==='sample';
-const key=isSample?'parkwise-sample-v1':'parkwise-workspace-v2';
-function restore(){try{const raw=localStorage.getItem(key)||(!isSample&&localStorage.getItem('parkwise-state-v1'));return {state:raw?expireHolds(migrate(JSON.parse(raw))):isSample?sampleWorkspace():initial(),error:''}}catch{return {state:initial(),error:'Saved data could not be loaded. Your existing storage has not been overwritten.'}}}
-function route(){try{const name=decodeURIComponent(location.hash.slice(1));return ['Vehicles','Reservations','Activity','Workspace'].includes(name)?name:'Overview'}catch{return 'Overview'}}
-export default function App(){
- const [loaded]=useState(restore),[state,setState]=useState(loaded.state),[page,setPage]=useState(route),[policy,setPolicy]=useState('Arrival order'),[savingBlocked,setSavingBlocked]=useState(Boolean(loaded.error)),[saved,setSaved]=useState(false),[error,setError]=useState(loaded.error);const content=useRef(null);useSmoothScroll(page);
- useEffect(()=>{const refresh=()=>setState(s=>expireHolds(s));const timer=setInterval(refresh,15000);window.addEventListener('focus',refresh);return()=>{clearInterval(timer);window.removeEventListener('focus',refresh)}},[]);
- useEffect(()=>{const fn=()=>setPage(route());window.addEventListener('hashchange',fn);return()=>window.removeEventListener('hashchange',fn)},[]);
- useEffect(()=>{if(savingBlocked)return;try{localStorage.setItem(key,JSON.stringify(state));setSaved(true)}catch{setSaved(false)}},[state,savingBlocked]);
- useEffect(()=>{document.title=`${page} · Parkwise`;const media=gsap.matchMedia();media.add('(prefers-reduced-motion: no-preference)',()=>{const ctx=gsap.context(()=>gsap.from('.page-title,.metric-row,.panel',{y:10,opacity:0,duration:.35,stagger:.035,ease:'workspaceEase'}),content);return()=>ctx.revert()});return()=>media.revert()},[page]);
- function checkout(id){try{setState(exitVehicle(state,id));setError('')}catch(e){setError(e.message)}}
- return <div className="technical-app"><a className="skip-link" href="#main" onClick={e=>{e.preventDefault();content.current.focus()}}>Skip to content</a><header className="technical-header"><a className="technical-brand" href="#Overview"><span><Command size={20}/></span>parkwise<small>PARKING SYSTEM</small></a><nav aria-label="Main navigation">{['Overview','Vehicles','Reservations','Activity','Workspace'].map((name,i)=><a key={name} href={'#'+name} aria-current={page===name?'page':undefined}><span>0{i+1}.</span> {name}</a>)}</nav><span className="system-status"><i/>{saved?'Saved on this device':'Session only'}</span></header><main id="main" tabIndex={-1} ref={content}>{isSample&&<div className="sample-banner">SAMPLE WORKSPACE · Changes stay separate from your real records. <a href="/?workspace=local#Overview">Return to real workspace →</a></div>}<div className="workspace-kicker"><span>WORKSPACE / {page.toUpperCase()}</span><span>GROUND LEVEL · 12 BAYS</span></div>{error&&<p role="alert" className="error">{error}</p>}{page==='Overview'?<Dashboard state={state} setState={setState} algorithm={policy} setAlgorithm={setPolicy}/>:page==='Vehicles'?<><PageTitle title="Vehicles" description="Find a vehicle, check out a visit, or export your records."/><ParkingOperations state={state} onExit={checkout} onCancel={id=>{try{setState(cancelArrival(state,id));setError('')}catch(e){setError(e.message)}}} view="register"/></>:page==='Reservations'?<Reservations state={state} setState={setState}/>:page==='Workspace'?<Workspace state={state} setState={setState} onRestore={restored=>{setState(restored);setSavingBlocked(false);setError('')}} isSample={isSample}/>:<><PageTitle title="Activity" description="A record of arrivals, parking assignments, and departures."/><Panel title="Recent activity"><div className="logs">{state.logs.length?state.logs.map((l,i)=><div key={i}><span>{displayTime(l.at)}</span><p>{l.message}</p></div>):<p className="muted">Activity will appear after your first arrival.</p>}</div><p className="storage-note">Latest 1,000 events · Times shown in your local time zone.</p></Panel></>}</main><footer className="technical-footer"><span>PARKWISE / SPACE, IN ORDER.</span><span>{saved?'SINGLE-DEVICE WORKSPACE · SAVED LOCALLY':'SESSION ONLY · DATA IS NOT SAVED'}</span></footer></div>
+import { useEffect, useRef, useState } from "react";
+import { Command, ArrowUpRight, LogOut } from "lucide-react";
+import gsap from "gsap";
+import { api, mutate } from "./product/api";
+import { Discover, MyParking } from "./product/Driver";
+import { OwnerFacilities, OwnerBookings, OwnerActivity } from "./product/Owner";
+import Auth from "./product/Auth";
+import { Notice } from "./product/Common";
+import "./product/product.css";
+function route() {
+  const value = location.hash.slice(1);
+  return [
+    "Discover",
+    "MyParking",
+    "Owner",
+    "Facilities",
+    "OwnerActivity",
+    "SignIn",
+  ].includes(value)
+    ? value
+    : "Discover";
+}
+export default function App() {
+  const [page, setPage] = useState(route),
+    [user, setUser] = useState(null),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState("");
+  const main = useRef(null);
+  const ownerPage = ["Owner", "Facilities", "OwnerActivity"].includes(page),
+    mode = ownerPage ? "owner" : "driver";
+  useEffect(() => {
+    const update = () => setPage(route());
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+  useEffect(() => {
+    let active = true;
+    api("/session")
+      .then((s) => {
+        if (active) setUser(s.user);
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    document.title = `${ownerPage ? "Owner" : "Driver"} · Parkwise`;
+    window.scrollTo(0, 0);
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const ctx = gsap.context(
+      () =>
+        gsap.from(".pw-heading,.pw-auth-card", {
+          opacity: 0,
+          y: 12,
+          duration: 0.35,
+          ease: "power2.out",
+          stagger: 0.05,
+        }),
+      main,
+    );
+    return () => ctx.revert();
+  }, [page, loading, user, ownerPage]);
+  function signedIn(account) {
+    setUser(account);
+    setError("");
+    location.hash = account.role === "owner" ? "Owner" : "MyParking";
+  }
+  async function signOut() {
+    try {
+      await mutate("/auth/logout");
+      setUser(null);
+      location.hash = "Discover";
+    } catch (e) {
+      setError(e.message);
+    }
+  }
+  const links = ownerPage
+    ? [
+        ["Owner", "Arrivals"],
+        ["Facilities", "Facilities"],
+        ["OwnerActivity", "Activity"],
+      ]
+    : [
+        ["Discover", "Find parking"],
+        ["MyParking", "My parking"],
+      ];
+  let content;
+  if (loading)
+    content = (
+      <div className="pw-loading">Connecting to your parking workspace…</div>
+    );
+  else if ((ownerPage || page === "MyParking" || page === "SignIn") && !user)
+    content = <Auth role={mode} onAuthenticated={signedIn} />;
+  else if (ownerPage && user.role !== "owner")
+    content = (
+      <div className="pw-empty">
+        <h1>Parking owner account required</h1>
+        <p>You are signed in as a driver. Sign out to use an owner account.</p>
+        <button onClick={signOut}>Sign out</button>
+      </div>
+    );
+  else if (page === "MyParking" && user.role !== "driver")
+    content = (
+      <div className="pw-empty">
+        <h1>Driver account required</h1>
+        <p>
+          You are signed in as a parking owner. Your reservations are managed in
+          the owner workspace.
+        </p>
+        <a className="pw-button pw-primary" href="#Owner">
+          Open owner workspace
+        </a>
+      </div>
+    );
+  else if (page === "Owner") content = <OwnerBookings />;
+  else if (page === "Facilities") content = <OwnerFacilities />;
+  else if (page === "OwnerActivity") content = <OwnerActivity />;
+  else if (page === "MyParking") content = <MyParking />;
+  else if (page === "SignIn")
+    content = (
+      <div className="pw-empty">
+        <h1>You’re signed in.</h1>
+        <a
+          href={user.role === "owner" ? "#Owner" : "#MyParking"}
+          className="pw-button pw-primary"
+        >
+          Open your workspace
+        </a>
+      </div>
+    );
+  else
+    content = (
+      <Discover
+        user={user}
+        onSignIn={() => {
+          location.hash = "SignIn";
+        }}
+      />
+    );
+  return (
+    <div className="parkwise">
+      <a
+        className="pw-skip"
+        href="#content"
+        onClick={(e) => {
+          e.preventDefault();
+          main.current.focus();
+        }}
+      >
+        Skip to content
+      </a>
+      <header className="pw-header">
+        <a className="pw-brand" href="#Discover">
+          <span>
+            <Command size={21} />
+          </span>
+          parkwise<small>SPACE, IN ORDER.</small>
+        </a>
+        <nav aria-label="Main navigation">
+          {links.map(([id, label], i) => (
+            <a
+              href={"#" + id}
+              key={id}
+              aria-current={page === id ? "page" : undefined}
+            >
+              <small>0{i + 1}</small>
+              {label}
+            </a>
+          ))}
+        </nav>
+        <div className="pw-account">
+          <a className="pw-mode-link" href={ownerPage ? "#Discover" : "#Owner"}>
+            {ownerPage ? "Driver view" : "Parking owner"}
+            <ArrowUpRight size={15} />
+          </a>
+          {user ? (
+            <>
+              <span className="pw-account-name">{user.name}</span>
+              <button aria-label="Sign out" onClick={signOut}>
+                <LogOut size={16} />
+              </button>
+            </>
+          ) : (
+            <a
+              href={ownerPage ? "#Owner" : "#SignIn"}
+              className="pw-button pw-primary"
+            >
+              Sign in
+            </a>
+          )}
+        </div>
+      </header>
+      <main id="content" tabIndex={-1} ref={main}>
+        {error && (
+          <Notice error>
+            {error}{" "}
+            <button onClick={() => location.reload()}>Retry connection</button>
+          </Notice>
+        )}
+        {content}
+      </main>
+      <footer className="pw-footer">
+        <a href="#Discover">parkwise</a>
+        <span>FIND A SPACE. ARRIVE WITH A PLAN.</span>
+        <a href="#Owner">For parking owners →</a>
+      </footer>
+    </div>
+  );
 }

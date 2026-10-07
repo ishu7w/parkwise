@@ -1118,3 +1118,116 @@ textarea {
 .pw-pass .pw-bay strong {
   font-size: 21px;
 }
+
+/* Driver tools share the existing paper-and-forest workspace. */
+.pw-driver-tools-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.pw-tool-form {
+  display: grid;
+  gap: 16px;
+}
+.pw-tool-form label,
+.pw-extension label,
+.pw-discovery-filters > label:first-child {
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.pw-tool-form input,
+.pw-extension select,
+.pw-discovery-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--forest);
+  font: inherit;
+}
+.pw-saved-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+}
+.pw-saved-row p {
+  margin: 8px 0;
+}
+.pw-saved-row > button {
+  flex-shrink: 0;
+}
+.pw-detail-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.pw-discovery-filters {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.pw-check-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.pw-check-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: #1a3c2b;
+}
+.pw-booking-tools {
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: #f7f7f5;
+}
+.pw-time-note {
+  margin: 0 0 16px;
+  font-size: 15px;
+}
+.pw-tool-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pw-extension {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  align-items: end;
+  padding-top: 24px;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.pw-extension small {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+}
+.pw-extension > p {
+  flex-basis: 100%;
+}
+@media (max-width: 700px) {
+  .pw-driver-tools-grid {
+    grid-template-columns: 1fr;
+  }
+  .pw-discovery-filters {
+    gap: 16px;
+  }
+  .pw-booking-tools {
+    padding: 18px;
+  }
+  .pw-saved-row {
+    flex-wrap: wrap;
+  }
+}

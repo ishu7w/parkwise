@@ -121,7 +121,36 @@ export default async function handler(req, res) {
       data = await service.publicFacilities(db, input);
     else if (/^\/api\/facilities\/[^/]+$/.test(path) && method === "GET")
       data = await service.publicFacility(db, path.split("/").at(-1), input);
-    else if (path === "/api/bookings" && method === "GET") {
+    else if (path === "/api/driver/garage" && method === "GET") {
+      requireRole(user, "driver");
+      data = await service.driverGarage(db, user);
+    } else if (path === "/api/driver/vehicles" && method === "POST") {
+      requireRole(user, "driver");
+      data = await service.saveVehicle(db, user, input);
+    } else if (
+      /^\/api\/driver\/vehicles\/[^/]+\/remove$/.test(path) &&
+      method === "POST"
+    ) {
+      requireRole(user, "driver");
+      data = await service.removeVehicle(db, user, path.split("/")[4]);
+    } else if (
+      /^\/api\/driver\/favorites\/[^/]+$/.test(path) &&
+      method === "PATCH"
+    ) {
+      requireRole(user, "driver");
+      data = await service.saveFavorite(
+        db,
+        user,
+        path.split("/").at(-1),
+        input.saved,
+      );
+    } else if (
+      /^\/api\/bookings\/[^/]+\/extend$/.test(path) &&
+      method === "POST"
+    ) {
+      requireRole(user, "driver");
+      data = await service.extendBooking(db, user, path.split("/")[3], input);
+    } else if (path === "/api/bookings" && method === "GET") {
       requireRole(user);
       data = await service.bookings(db, user);
     } else if (path === "/api/bookings" && method === "POST") {

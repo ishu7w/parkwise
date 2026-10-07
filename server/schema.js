@@ -31,6 +31,16 @@ CREATE TABLE IF NOT EXISTS activity (
  message TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE TABLE IF NOT EXISTS auth_attempts (key TEXT PRIMARY KEY, count INTEGER NOT NULL, reset_at TIMESTAMPTZ NOT NULL);
+CREATE TABLE IF NOT EXISTS vehicles (
+ id TEXT PRIMARY KEY, driver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ plate TEXT NOT NULL, label TEXT NOT NULL, UNIQUE(driver_id,plate)
+);
+CREATE TABLE IF NOT EXISTS favorites (
+ driver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ facility_id TEXT NOT NULL REFERENCES facilities(id), PRIMARY KEY(driver_id,facility_id)
+);
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booked_hourly_rate INTEGER;
+UPDATE bookings SET booked_hourly_rate=price / GREATEST(1,CEIL(EXTRACT(EPOCH FROM (end_at-start_at))/3600)::integer) WHERE booked_hourly_rate IS NULL;
 CREATE INDEX IF NOT EXISTS bookings_facility_time ON bookings(facility_id,start_at,end_at);
 CREATE INDEX IF NOT EXISTS bookings_driver ON bookings(driver_id,created_at);
 CREATE INDEX IF NOT EXISTS facilities_owner ON facilities(owner_id);

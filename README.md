@@ -25,7 +25,11 @@ Use separate browser sessions for the two accounts. Both must reach the same ser
 
 - Separate driver and owner experiences with server-enforced roles and resource ownership.
 - Discovery by address/name, arrival window, duration and standard/accessible/EV category.
-- Optional location-based sorting with manual search when permission is denied.
+- Price, availability, saved-parking and optional location-based sorting; manual search works when location permission is denied.
+- Account-backed vehicle garage and saved facilities, with saved plate selection at checkout.
+- Extend reserved/checked-in parking by 30, 60 or 120 minutes, subject to bay/vehicle conflicts and an eight-hour total limit. Extensions preserve the booked hourly rate and appear for the owner.
+- Download booking details, import a calendar event with a departure reminder, and rebook a previous facility.
+- Guest booking selections remain available after signing in during the same page session.
 - Transactional exact-bay reservations, overlap protection and independent booking references.
 - Driver passes with entrance map, driving directions, floor, assigned bay and arrival instructions.
 - Owner check-in/check-out, publication controls, facility details editing, maintenance blocks and activity records.
@@ -37,7 +41,7 @@ Use separate browser sessions for the two accounts. Both must reach the same ser
 
 Copy `.env.example` to `.env` for local configuration, or set DATABASE_URL in the Vercel project environment. Use a managed PostgreSQL connection string with the provider's required TLS configuration. Never commit credentials.
 
-The Vercel function serves `/api/*` through `api/index.js`. The API requires DATABASE_URL in production and fails clearly when it is absent; it does not fall back to ephemeral or browser storage. The SQL schema initializes on connection. Use the same database for all production instances. The initial Vercel project remains on the earlier release until this rebuild's database is configured.
+The Vercel function serves `/api/*` through `api/index.js`. The API requires DATABASE_URL in production and fails clearly when it is absent; it does not fall back to ephemeral or browser storage. The SQL schema initializes on connection. Use the same database for all production instances. The live Vercel project is connected to a free Neon PostgreSQL database through its marketplace integration. Schema updates are additive and initialize under a database lock.
 
 ## Verify
 

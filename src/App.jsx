@@ -5,6 +5,7 @@ import { api, mutate } from "./product/api";
 import { Discover, MyParking } from "./product/Driver";
 import { OwnerFacilities, OwnerBookings, OwnerActivity } from "./product/Owner";
 import Auth from "./product/Auth";
+import { DriverGarage } from "./product/DriverTools";
 import { Notice } from "./product/Common";
 import "./product/product.css";
 function route() {
@@ -12,6 +13,7 @@ function route() {
   return [
     "Discover",
     "MyParking",
+    "Garage",
     "Owner",
     "Facilities",
     "OwnerActivity",
@@ -23,6 +25,7 @@ function route() {
 export default function App() {
   const [page, setPage] = useState(route),
     [user, setUser] = useState(null),
+    [bookingIntent, setBookingIntent] = useState(null),
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const main = useRef(null);
@@ -69,12 +72,18 @@ export default function App() {
   function signedIn(account) {
     setUser(account);
     setError("");
-    location.hash = account.role === "owner" ? "Owner" : "MyParking";
+    location.hash =
+      account.role === "owner"
+        ? "Owner"
+        : bookingIntent
+          ? "Discover"
+          : "MyParking";
   }
   async function signOut() {
     try {
       await mutate("/auth/logout");
       setUser(null);
+      setBookingIntent(null);
       location.hash = "Discover";
     } catch (e) {
       setError(e.message);
@@ -89,13 +98,17 @@ export default function App() {
     : [
         ["Discover", "Find parking"],
         ["MyParking", "My parking"],
+        ["Garage", "My garage"],
       ];
   let content;
   if (loading)
     content = (
       <div className="pw-loading">Connecting to your parking workspace…</div>
     );
-  else if ((ownerPage || page === "MyParking" || page === "SignIn") && !user)
+  else if (
+    (ownerPage || ["MyParking", "Garage", "SignIn"].includes(page)) &&
+    !user
+  )
     content = <Auth role={mode} onAuthenticated={signedIn} />;
   else if (ownerPage && user.role !== "owner")
     content = (
@@ -105,7 +118,7 @@ export default function App() {
         <button onClick={signOut}>Sign out</button>
       </div>
     );
-  else if (page === "MyParking" && user.role !== "driver")
+  else if (["MyParking", "Garage"].includes(page) && user.role !== "driver")
     content = (
       <div className="pw-empty">
         <h1>Driver account required</h1>
@@ -122,6 +135,7 @@ export default function App() {
   else if (page === "Facilities") content = <OwnerFacilities />;
   else if (page === "OwnerActivity") content = <OwnerActivity />;
   else if (page === "MyParking") content = <MyParking />;
+  else if (page === "Garage") content = <DriverGarage />;
   else if (page === "SignIn")
     content = (
       <div className="pw-empty">
@@ -138,7 +152,10 @@ export default function App() {
     content = (
       <Discover
         user={user}
-        onSignIn={() => {
+        intent={bookingIntent}
+        onBooked={() => setBookingIntent(null)}
+        onSignIn={(intent) => {
+          setBookingIntent(intent);
           location.hash = "SignIn";
         }}
       />

@@ -12,8 +12,16 @@ The rebuild uses a real API and shared PostgreSQL records. Automated browser tes
 - Arrival grace expiry; future bookings cannot check in early; parked overstays continue blocking allocation.
 - Facility entrance directions use the owner-provided coordinates; bay passes highlight the assigned label in the schematic.
 - Persistent SQL data survives database reopening. Existing booking amounts stay unchanged after a rate edit.
-- Five product pages at 390, 768 and 1440 pixel widths, with no document overflow or browser runtime errors.
+- Six product pages at 390, 768 and 1440 pixel widths, with no document overflow or browser runtime errors.
 
 ## Release dependency
 
 Production cross-device operation requires a managed PostgreSQL DATABASE_URL in Vercel. A production deployment without that connection is not a working release. Local operation uses persistent embedded PostgreSQL and can exercise the complete multi-account workflow against one server.
+
+## Driver tools update
+
+- Saved vehicles normalize plates, update an existing plate, survive reload and remain isolated between accounts. Removing a saved vehicle does not delete booking history.
+- Saved facilities persist in the account; unpublishing keeps the saved entry while preventing new bookings.
+- Extensions preserve the original hourly rate after owner rate edits, propagate the new departure/price to owners and add an activity entry. Future bay/vehicle conflicts, foreign accounts, completed bookings and the eight-hour limit are enforced on the server.
+- Browser checks cover saved parking, saved vehicle selection, extension confirmation, calendar downloads, reload persistence and the garage at mobile/tablet/desktop widths.
+- Calendar exports use UTC, escape metadata, fold long lines and include a reminder 15 minutes before departure. Booking downloads explicitly describe pay-at-facility and are not payment receipts.

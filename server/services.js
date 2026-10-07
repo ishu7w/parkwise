@@ -159,7 +159,7 @@ export async function reserve(db, user, input) {
       reference = "PW-" + randomBytes(5).toString("hex").toUpperCase(),
       price = Math.ceil(window.duration / 60) * facility.hourly_rate;
     await tx.query(
-      "INSERT INTO bookings(id,reference,facility_id,bay_id,driver_id,plate,start_at,end_at,status,price) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'reserved',$9)",
+      "INSERT INTO bookings(id,reference,facility_id,bay_id,driver_id,plate,start_at,end_at,status,price,booked_hourly_rate) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'reserved',$9,$10)",
       [
         id,
         reference,
@@ -170,6 +170,7 @@ export async function reserve(db, user, input) {
         window.startAt,
         window.endAt,
         price,
+        facility.hourly_rate,
       ],
     );
     await activity(
@@ -179,6 +180,120 @@ export async function reserve(db, user, input) {
       `${reference} booked · ${plate} → ${bays[0].label}`,
     );
     return { id, reference };
+  });
+}
+
+export function vehiclePlate(value) {
+  const plate = text(value, "Vehicle plate", 3, 15)
+    .toUpperCase()
+    .replace(/[ -]/g, "");
+  if (!/^[A-Z0-9]{3,15}$/.test(plate))
+    fail(400, "Enter a valid vehicle plate.");
+  return plate;
+}
+export async function driverGarage(db, user) {
+  const vehicles = await db.query(
+    "SELECT id,plate,label FROM vehicles WHERE driver_id=$1 ORDER BY label,plate",
+    [user.id],
+  );
+  const favorites = await db.query(
+    "SELECT f.id,f.name,f.address,f.hourly_rate,f.published FROM favorites s JOIN facilities f ON f.id=s.facility_id WHERE s.driver_id=$1 ORDER BY f.name",
+    [user.id],
+  );
+  return { vehicles: vehicles.rows, favorites: favorites.rows };
+}
+export async function saveVehicle(db, user, input) {
+  const plate = vehiclePlate(input.plate),
+    label = text(input.label, "Vehicle name", 1, 50);
+  const { rows } = await db.query(
+    "INSERT INTO vehicles(id,driver_id,plate,label) VALUES($1,$2,$3,$4) ON CONFLICT(driver_id,plate) DO UPDATE SET label=EXCLUDED.label RETURNING id,plate,label",
+    [randomUUID(), user.id, plate, label],
+  );
+  return rows[0];
+}
+export async function removeVehicle(db, user, id) {
+  const result = await db.query(
+    "DELETE FROM vehicles WHERE id=$1 AND driver_id=$2 RETURNING id",
+    [id, user.id],
+  );
+  if (!result.rows.length) fail(404, "Vehicle not found.");
+  return { id };
+}
+export async function saveFavorite(db, user, id, saved) {
+  if (typeof saved !== "boolean") fail(400, "Choose a saved parking status.");
+  if (saved) {
+    const facility = await db.query(
+      "SELECT id FROM facilities WHERE id=$1 AND published",
+      [id],
+    );
+    if (!facility.rows.length)
+      fail(404, "This parking facility is unavailable.");
+    await db.query(
+      "INSERT INTO favorites(driver_id,facility_id) VALUES($1,$2) ON CONFLICT DO NOTHING",
+      [user.id, id],
+    );
+  } else
+    await db.query(
+      "DELETE FROM favorites WHERE driver_id=$1 AND facility_id=$2",
+      [user.id, id],
+    );
+  return { id, saved };
+}
+export async function extendBooking(db, user, id, input) {
+  const minutes = integer(input.minutes, "Extra time", 30, 120);
+  if (![30, 60, 120].includes(minutes))
+    fail(400, "Choose 30, 60 or 120 extra minutes.");
+  const existing = await db.query(
+    "SELECT facility_id FROM bookings WHERE id=$1 AND driver_id=$2",
+    [id, user.id],
+  );
+  if (!existing.rows.length) fail(404, "Booking not found.");
+  return db.transaction(async (tx) => {
+    // Use the same driver → facility lock order as reservation creation.
+    await tx.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [user.id]);
+    await tx.query("SELECT id FROM facilities WHERE id=$1 FOR UPDATE", [
+      existing.rows[0].facility_id,
+    ]);
+    await reconcile(tx);
+    const { rows } = await tx.query(
+      "SELECT * FROM bookings WHERE id=$1 AND driver_id=$2 FOR UPDATE",
+      [id, user.id],
+    );
+    const b = rows[0],
+      end = new Date(Date.parse(b.end_at) + minutes * 60000);
+    if (!["reserved", "parked"].includes(b.status))
+      fail(409, "Only reserved or checked-in parking can be extended.");
+    if (Date.parse(b.end_at) <= Date.now())
+      fail(
+        409,
+        "The booked departure has passed. Please speak to the attendant.",
+      );
+    const duration = Math.round(
+      (end.getTime() - Date.parse(b.start_at)) / 60000,
+    );
+    if (duration > 480) fail(400, "A booking can cover up to 8 hours.");
+    const conflict = await tx.query(
+      "SELECT id FROM bookings WHERE id<>$1 AND (bay_id=$2 OR (driver_id=$3 AND plate=$4)) AND (status='parked' OR (status='reserved' AND start_at<$6 AND end_at>$5))",
+      [id, b.bay_id, user.id, b.plate, b.end_at, end.toISOString()],
+    );
+    if (conflict.rows.length)
+      fail(
+        409,
+        "Extra time is unavailable: the bay or vehicle has another booking. Your current booking is unchanged.",
+      );
+    const price = Math.ceil(duration / 60) * b.booked_hourly_rate;
+    await tx.query("UPDATE bookings SET end_at=$1,price=$2 WHERE id=$3", [
+      end.toISOString(),
+      price,
+      id,
+    ]);
+    await activity(
+      tx,
+      b.facility_id,
+      user.id,
+      `${b.reference} extended by ${minutes} min · ${b.plate}`,
+    );
+    return { id, end_at: end.toISOString(), price };
   });
 }
 const bookingSelect = `SELECT r.*,f.name AS facility_name,f.address,f.latitude,f.longitude,f.floor,f.instructions,b.label AS bay_label,b.category,u.name AS driver_name FROM bookings r JOIN facilities f ON f.id=r.facility_id JOIN bays b ON b.id=r.bay_id JOIN users u ON u.id=r.driver_id`;

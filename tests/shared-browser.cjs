@@ -121,6 +121,38 @@ const path = require("node:path");
       .click();
     await owner.getByText("Published", { exact: true }).waitFor();
     await register(driver, "driver");
+    const guest = await browser.newPage({ reducedMotion: "reduce" });
+    await guest.goto("http://localhost:5175/#Discover");
+    await guest.getByRole("button", { name: /Integration Parking/ }).click();
+    await guest.getByLabel("Duration", { exact: true }).selectOption("120");
+    await guest
+      .getByLabel("Vehicle plate", { exact: true })
+      .fill("MH12 AB9876");
+    await guest
+      .getByRole("button", { name: "Sign in to reserve", exact: true })
+      .click();
+    await guest
+      .getByLabel("Email address", { exact: true })
+      .fill("driver-browser@example.test");
+    await guest
+      .getByLabel("Password", { exact: true })
+      .fill("Strong-pass-1234");
+    await guest
+      .locator(".pw-auth-card")
+      .getByRole("button", { name: "Sign in", exact: true })
+      .click();
+    await guest
+      .getByRole("button", { name: "Reserve a bay", exact: true })
+      .waitFor();
+    assert.equal(
+      await guest.getByLabel("Duration", { exact: true }).inputValue(),
+      "120",
+    );
+    assert.equal(
+      await guest.getByLabel("Vehicle plate", { exact: true }).inputValue(),
+      "MH12 AB9876",
+    );
+    await guest.close();
     await driver
       .getByRole("navigation")
       .getByRole("link", { name: /Find parking/ })
@@ -128,9 +160,66 @@ const path = require("node:path");
     await driver.getByRole("button", { name: /Integration Parking/ }).click();
     await driver.getByLabel("Vehicle plate").fill("MH12 AB9876");
     await driver
+      .getByRole("button", { name: "Save parking", exact: true })
+      .click();
+    await driver
+      .getByRole("button", { name: "Saved parking ✓", exact: true })
+      .waitFor();
+    await driver
       .getByRole("button", { name: "Reserve a bay", exact: true })
       .click();
     await driver.locator(".pw-pass").waitFor();
+    const calendarDownload = driver.waitForEvent("download");
+    await driver
+      .getByRole("button", { name: "Add to calendar", exact: true })
+      .click();
+    const calendar = await calendarDownload;
+    assert.match(calendar.suggestedFilename(), /\.ics$/);
+    assert.match(
+      await fs.readFile(await calendar.path(), "utf8"),
+      /TRIGGER;RELATED=END:-PT15M/,
+    );
+    await driver.getByLabel("Extra parking time").selectOption("30");
+    await driver
+      .getByRole("button", { name: "Extend parking", exact: true })
+      .click();
+    await driver
+      .getByRole("button", { name: "Confirm extension", exact: true })
+      .click();
+    await driver.waitForFunction(() =>
+      document.querySelector(".pw-pass-footer")?.textContent.includes("₹80"),
+    );
+    await driver.goto("http://localhost:5175/#Garage");
+    await driver.getByText("Integration Parking", { exact: true }).waitFor();
+    await driver
+      .getByLabel("Vehicle name", { exact: true })
+      .fill("My everyday car");
+    await driver
+      .getByLabel("Vehicle plate", { exact: true })
+      .fill("MH12AB9876");
+    await driver
+      .getByRole("button", { name: "Save vehicle", exact: true })
+      .click();
+    await driver.getByText("My everyday car", { exact: true }).waitFor();
+    await driver.reload();
+    await driver.getByText("My everyday car", { exact: true }).waitFor();
+    await driver.screenshot({
+      path: "docs/screenshots/driver-garage-tools.png",
+      fullPage: true,
+    });
+    await driver.goto("http://localhost:5175/#Discover");
+    await driver.getByRole("button", { name: /Integration Parking/ }).click();
+    await driver.getByLabel("Use a saved vehicle").selectOption("MH12AB9876");
+    assert.equal(
+      await driver.getByLabel("Vehicle plate", { exact: true }).inputValue(),
+      "MH12AB9876",
+    );
+    await driver.getByLabel("Sort parking").selectOption("price");
+    await driver.getByLabel("Saved parking only").check();
+    await driver.getByRole("button", { name: /Integration Parking/ }).waitFor();
+    await driver.goto("http://localhost:5175/#MyParking");
+    await driver.locator(".pw-pass").waitFor();
+
     assert.match(await driver.locator(".pw-assignment").innerText(), /A01/);
     if ((await driver.locator("details").getAttribute("open")) === null)
       await driver.locator("summary").click();
@@ -189,7 +278,7 @@ const path = require("node:path");
       .waitFor();
     for (const width of [390, 768, 1440]) {
       for (const [page, routes] of [
-        [driver, ["Discover", "MyParking"]],
+        [driver, ["Discover", "MyParking", "Garage"]],
         [owner, ["Owner", "Facilities", "OwnerActivity"]],
       ]) {
         await page.setViewportSize({ width, height: 1000 });
@@ -210,7 +299,7 @@ const path = require("node:path");
     await owner.goto("http://localhost:5175/#Facilities");
     await owner.locator(".pw-floorplan").waitFor();
     await owner.screenshot({
-      path: "docs/screenshots/owner-facilities-v2.png",
+      path: "docs/screenshots/owner-facilities-driver-tools.png",
       fullPage: true,
     });
     await driver.setViewportSize({ width: 1440, height: 1000 });
@@ -225,7 +314,7 @@ const path = require("node:path");
       .locator("#map")
       .waitFor({ timeout: 15000 });
     await driver.screenshot({
-      path: "docs/screenshots/driver-pass-v2.png",
+      path: "docs/screenshots/driver-pass-tools.png",
       fullPage: true,
     });
     await driver.goto("http://localhost:5175/#Discover");
@@ -238,7 +327,7 @@ const path = require("node:path");
       .locator("#map")
       .waitFor({ timeout: 15000 });
     await driver.screenshot({
-      path: "docs/screenshots/driver-discovery-v2.png",
+      path: "docs/screenshots/driver-discovery-tools.png",
       fullPage: true,
     });
     assert.deepEqual(errors, []);
@@ -257,7 +346,7 @@ const path = require("node:path");
     );
     await reopened.close();
     console.log(
-      "PASS separate driver/owner accounts, publication, shared booking, bidirectional status, entrance directions, bay plan, persistent database and five responsive pages",
+      "PASS separate driver/owner accounts, publication, shared booking, bidirectional status, entrance directions, bay plan, persistent database driver garage, saved parking, extensions, calendar download, guest checkout continuity and six responsive pages",
     );
   } finally {
     await browser.close();

@@ -322,6 +322,242 @@ test("grace expiry and future check-in protect operational state", async () => {
     409,
   );
 });
+test("saved vehicles and facilities persist per driver with role and ownership checks", async () => {
+  const second = await register("driver", 3);
+  assert.equal((await request("/driver/garage")).status, 401);
+  assert.equal(
+    (await request("/driver/garage", { cookie: owner.cookie })).status,
+    403,
+  );
+  const saved = await request("/driver/vehicles", {
+    cookie: driver.cookie,
+    body: { plate: "MH12 AB1234", label: "Daily car" },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.result.data.plate, "MH12AB1234");
+  await request("/driver/vehicles", {
+    cookie: driver.cookie,
+    body: { plate: "MH12AB1234", label: "Updated car" },
+  });
+  const garage = await request("/driver/garage", { cookie: driver.cookie });
+  assert.equal(garage.result.data.vehicles.length, 1);
+  assert.equal(garage.result.data.vehicles[0].label, "Updated car");
+  assert.equal(
+    (await request("/driver/garage", { cookie: second.cookie })).result.data
+      .vehicles.length,
+    0,
+  );
+  assert.equal(
+    (
+      await request("/driver/vehicles/" + saved.result.data.id + "/remove", {
+        cookie: second.cookie,
+        body: {},
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request("/driver/vehicles", {
+        cookie: driver.cookie,
+        body: { plate: "BAD!", label: "Car" },
+      })
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await request("/driver/favorites/" + facility, {
+        cookie: driver.cookie,
+        method: "PATCH",
+        body: { saved: true },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await request("/driver/garage", { cookie: driver.cookie })).result.data
+      .favorites[0].id,
+    facility,
+  );
+  assert.equal(
+    (await request("/driver/garage", { cookie: second.cookie })).result.data
+      .favorites.length,
+    0,
+  );
+  await request("/driver/favorites/" + facility, {
+    cookie: driver.cookie,
+    method: "PATCH",
+    body: { saved: false },
+  });
+  assert.equal(
+    (await request("/driver/garage", { cookie: driver.cookie })).result.data
+      .favorites.length,
+    0,
+  );
+  await request("/driver/vehicles/" + saved.result.data.id + "/remove", {
+    cookie: driver.cookie,
+    body: {},
+  });
+  assert.equal(
+    (await request("/driver/garage", { cookie: driver.cookie })).result.data
+      .vehicles.length,
+    0,
+  );
+});
+test("extensions preserve booked rates, reach owners, reject conflicts and enforce limits", async () => {
+  const d = await register("driver", 4),
+    other = await register("driver", 5);
+  const details = {
+    name: "Extension Parking",
+    address: "Extension Road, Pune",
+    floor: "Ground",
+    instructions: "Enter through the main gate.",
+    latitude: 18.52,
+    longitude: 73.85,
+    hourlyRate: 40,
+    standard: 1,
+  };
+  const f = (
+    await request("/owner/facilities", { cookie: owner.cookie, body: details })
+  ).result.data.id;
+  await request("/owner/facilities/" + f, {
+    cookie: owner.cookie,
+    method: "PATCH",
+    body: { published: true },
+  });
+  const start = new Date(
+    Math.floor(Date.now() / 1000) * 1000 + 5 * 60000,
+  ).toISOString();
+  const b = (
+    await request("/bookings", {
+      cookie: d.cookie,
+      body: { facilityId: f, plate: "MH12EXT1", startAt: start, duration: 60 },
+    })
+  ).result.data.id;
+  await request("/owner/facilities/" + f, {
+    cookie: owner.cookie,
+    method: "PATCH",
+    body: { ...details, hourlyRate: 90 },
+  });
+  const extension = await request("/bookings/" + b + "/extend", {
+    cookie: d.cookie,
+    body: { minutes: 30 },
+  });
+  assert.equal(extension.status, 200);
+  assert.equal(extension.result.data.price, 8000);
+  assert.equal(
+    Date.parse(extension.result.data.end_at),
+    Date.parse(start) + 90 * 60000,
+  );
+  const ownerRecord = (
+    await request("/owner/bookings", { cookie: owner.cookie })
+  ).result.data.find((x) => x.id === b);
+  assert.equal(ownerRecord.price, 8000);
+  assert.equal(ownerRecord.booked_hourly_rate, 4000);
+  assert.equal(Date.parse(ownerRecord.end_at), Date.parse(start) + 90 * 60000);
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: other.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: owner.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: d.cookie,
+        body: { minutes: 45 },
+      })
+    ).status,
+    400,
+  );
+  const future = await request("/bookings", {
+    cookie: other.cookie,
+    body: {
+      facilityId: f,
+      plate: "MH12EXT2",
+      startAt: new Date(Date.parse(start) + 95 * 60000).toISOString(),
+      duration: 60,
+    },
+  });
+  assert.equal(future.status, 200);
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: d.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (await request("/bookings", { cookie: d.cookie })).result.data[0].price,
+    8000,
+  );
+  await request("/bookings/" + future.result.data.id + "/cancel", {
+    cookie: other.cookie,
+    body: {},
+  });
+  await request("/owner/bookings/" + b + "/check-in", {
+    cookie: owner.cookie,
+    body: {},
+  });
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: d.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request("/owner/activity", { cookie: owner.cookie })
+    ).result.data.some((a) => a.message.includes("extended by 30 min")),
+    true,
+  );
+  await request("/owner/bookings/" + b + "/check-out", {
+    cookie: owner.cookie,
+    body: {},
+  });
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/extend", {
+        cookie: d.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    409,
+  );
+  const long = (
+    await request("/bookings", {
+      cookie: d.cookie,
+      body: { facilityId: f, plate: "MH12EXT1", duration: 480 },
+    })
+  ).result.data.id;
+  assert.equal(
+    (
+      await request("/bookings/" + long + "/extend", {
+        cookie: d.cookie,
+        body: { minutes: 30 },
+      })
+    ).status,
+    400,
+  );
+});
 test("sign-out invalidates the server session and activity is owner scoped", async () => {
   assert.ok(
     (await request("/owner/activity", { cookie: owner.cookie })).result.data

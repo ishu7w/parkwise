@@ -4,6 +4,8 @@ import {
   HttpError,
   fail,
   text,
+  passwordValue,
+  mutationLimit,
   authenticate,
   requireRole,
   passwordHash,
@@ -16,9 +18,15 @@ import {
   checkOrigin,
 } from "./security.js";
 import * as service from "./services.js";
+import * as operations from "./operations.js";
+import { updateAccount, changePassword } from "./accounts.js";
 async function body(req) {
-  if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body))
+  if (req.body && typeof req.body === "object" && !Buffer.isBuffer(req.body)) {
+    if (Array.isArray(req.body)) fail(400, "Invalid request.");
+    if (Buffer.byteLength(JSON.stringify(req.body)) > 20000)
+      fail(413, "Request is too large.");
     return req.body;
+  }
   if (!(req.headers["content-type"] || "").includes("application/json"))
     fail(415, "Send application/json.");
   let data = "";
@@ -61,8 +69,56 @@ export default async function handler(req, res) {
         method === "GET"
           ? Object.fromEntries(url.searchParams)
           : await body(req);
+    if (method !== "GET") await mutationLimit(db, req, user);
     let data;
-    if (path === "/api/session" && method === "GET") data = { user };
+    if (path === "/api/health" && method === "GET") {
+      await db.query("SELECT 1");
+      data = { status: "ok", database: "connected" };
+    } else if (path === "/api/account" && method === "PATCH") {
+      requireRole(user);
+      data = await updateAccount(db, user, input);
+    } else if (path === "/api/account/password" && method === "POST") {
+      requireRole(user);
+      data = await changePassword(db, user, input, req, res);
+    } else if (path === "/api/owner/report" && method === "GET") {
+      requireRole(user, "owner");
+      data = await operations.ownerReport(db, user, input);
+    } else if (path === "/api/help" && method === "GET") {
+      requireRole(user);
+      data = await operations.helpInbox(db, user);
+    } else if (
+      /^\/api\/bookings\/[^/]+\/messages$/.test(path) &&
+      ["GET", "POST"].includes(method)
+    ) {
+      requireRole(user);
+      data =
+        method === "GET"
+          ? await operations.messages(db, user, path.split("/")[3])
+          : await operations.sendMessage(db, user, path.split("/")[3], input);
+    } else if (
+      /^\/api\/bookings\/[^/]+\/help$/.test(path) &&
+      method === "PATCH"
+    ) {
+      requireRole(user);
+      data = await operations.resolveHelp(db, user, path.split("/")[3], input);
+    } else if (
+      /^\/api\/bookings\/[^/]+\/review$/.test(path) &&
+      method === "POST"
+    ) {
+      requireRole(user, "driver");
+      data = await operations.review(db, user, path.split("/")[3], input);
+    } else if (
+      /^\/api\/owner\/bookings\/[^/]+\/payment$/.test(path) &&
+      method === "POST"
+    ) {
+      requireRole(user, "owner");
+      data = await operations.recordPayment(
+        db,
+        user,
+        path.split("/")[4],
+        input,
+      );
+    } else if (path === "/api/session" && method === "GET") data = { user };
     else if (
       ["/api/auth/register", "/api/auth/login"].includes(path) &&
       method === "POST"
@@ -70,7 +126,7 @@ export default async function handler(req, res) {
       const email = text(input.email, "Email", 5, 254).toLowerCase();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         fail(400, "Enter a valid email.");
-      const password = text(input.password, "Password", 10, 128);
+      const password = passwordValue(input.password);
       await throttle(db, req, email);
       let account;
       if (path.endsWith("register")) {
@@ -120,7 +176,10 @@ export default async function handler(req, res) {
     } else if (path === "/api/facilities" && method === "GET")
       data = await service.publicFacilities(db, input);
     else if (/^\/api\/facilities\/[^/]+$/.test(path) && method === "GET")
-      data = await service.publicFacility(db, path.split("/").at(-1), input);
+      data = {
+        ...(await service.publicFacility(db, path.split("/").at(-1), input)),
+        reviews: await operations.publicReviews(db, path.split("/").at(-1)),
+      };
     else if (path === "/api/driver/garage" && method === "GET") {
       requireRole(user, "driver");
       data = await service.driverGarage(db, user);
@@ -152,7 +211,10 @@ export default async function handler(req, res) {
       data = await service.extendBooking(db, user, path.split("/")[3], input);
     } else if (path === "/api/bookings" && method === "GET") {
       requireRole(user);
-      data = await service.bookings(db, user);
+      data = await operations.bookingExtras(
+        db,
+        await service.bookings(db, user),
+      );
     } else if (path === "/api/bookings" && method === "POST") {
       requireRole(user, "driver");
       data = await service.reserve(db, user, input);
@@ -186,7 +248,10 @@ export default async function handler(req, res) {
       );
     } else if (path === "/api/owner/bookings" && method === "GET") {
       requireRole(user, "owner");
-      data = await service.bookings(db, user);
+      data = await operations.bookingExtras(
+        db,
+        await service.bookings(db, user),
+      );
     } else if (
       /^\/api\/owner\/bookings\/[^/]+\/(check-in|check-out)$/.test(path) &&
       method === "POST"

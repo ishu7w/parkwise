@@ -6,6 +6,7 @@ import { Discover, MyParking } from "./product/Driver";
 import { OwnerFacilities, OwnerBookings, OwnerActivity } from "./product/Owner";
 import Auth from "./product/Auth";
 import { DriverGarage } from "./product/DriverTools";
+import { Account, HelpInbox, OwnerReports } from "./product/Operations";
 import { Notice } from "./product/Common";
 import "./product/product.css";
 function route() {
@@ -14,6 +15,10 @@ function route() {
     "Discover",
     "MyParking",
     "Garage",
+    "Account",
+    "Help",
+    "OwnerHelp",
+    "Reports",
     "Owner",
     "Facilities",
     "OwnerActivity",
@@ -29,7 +34,11 @@ export default function App() {
     [loading, setLoading] = useState(true),
     [error, setError] = useState("");
   const main = useRef(null);
-  const ownerPage = ["Owner", "Facilities", "OwnerActivity"].includes(page),
+  const ownerPage =
+      ["Owner", "Facilities", "OwnerActivity", "OwnerHelp", "Reports"].includes(
+        page,
+      ) ||
+      (page === "Account" && user?.role === "owner"),
     mode = ownerPage ? "owner" : "driver";
   useEffect(() => {
     const update = () => setPage(route());
@@ -55,7 +64,7 @@ export default function App() {
   useEffect(() => {
     document.title = `${ownerPage ? "Owner" : "Driver"} · Parkwise`;
     window.scrollTo(0, 0);
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (loading || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const ctx = gsap.context(
       () =>
         gsap.from(".pw-heading,.pw-auth-card", {
@@ -94,11 +103,14 @@ export default function App() {
         ["Owner", "Arrivals"],
         ["Facilities", "Facilities"],
         ["OwnerActivity", "Activity"],
+        ["Reports", "Reports"],
+        ["OwnerHelp", "Help"],
       ]
     : [
         ["Discover", "Find parking"],
         ["MyParking", "My parking"],
         ["Garage", "My garage"],
+        ["Help", "Help"],
       ];
   let content;
   if (loading)
@@ -106,7 +118,8 @@ export default function App() {
       <div className="pw-loading">Connecting to your parking workspace…</div>
     );
   else if (
-    (ownerPage || ["MyParking", "Garage", "SignIn"].includes(page)) &&
+    (ownerPage ||
+      ["MyParking", "Garage", "SignIn", "Account", "Help"].includes(page)) &&
     !user
   )
     content = <Auth role={mode} onAuthenticated={signedIn} />;
@@ -136,6 +149,11 @@ export default function App() {
   else if (page === "OwnerActivity") content = <OwnerActivity />;
   else if (page === "MyParking") content = <MyParking />;
   else if (page === "Garage") content = <DriverGarage />;
+  else if (page === "Account")
+    content = <Account user={user} onUpdated={setUser} />;
+  else if (["Help", "OwnerHelp"].includes(page))
+    content = <HelpInbox owner={ownerPage} />;
+  else if (page === "Reports") content = <OwnerReports />;
   else if (page === "SignIn")
     content = (
       <div className="pw-empty">
@@ -198,7 +216,13 @@ export default function App() {
           </a>
           {user ? (
             <>
-              <span className="pw-account-name">{user.name}</span>
+              <a
+                href="#Account"
+                className="pw-account-name"
+                aria-label="Account settings"
+              >
+                {user.name}
+              </a>
               <button aria-label="Sign out" onClick={signOut}>
                 <LogOut size={16} />
               </button>

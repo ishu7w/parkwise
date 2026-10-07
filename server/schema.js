@@ -39,6 +39,22 @@ CREATE TABLE IF NOT EXISTS favorites (
  driver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  facility_id TEXT NOT NULL REFERENCES facilities(id), PRIMARY KEY(driver_id,facility_id)
 );
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS help_resolved_at TIMESTAMPTZ;
+CREATE TABLE IF NOT EXISTS booking_messages (
+ id TEXT PRIMARY KEY, booking_id TEXT NOT NULL REFERENCES bookings(id),
+ actor_id TEXT NOT NULL REFERENCES users(id), message TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS booking_reviews (
+ booking_id TEXT PRIMARY KEY REFERENCES bookings(id), rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+ comment TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS booking_payments (
+ id TEXT PRIMARY KEY, booking_id TEXT NOT NULL REFERENCES bookings(id), actor_id TEXT NOT NULL REFERENCES users(id),
+ amount INTEGER NOT NULL CHECK(amount>0), method TEXT NOT NULL CHECK(method IN ('cash','upi','card')),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS messages_booking_time ON booking_messages(booking_id,created_at);
+CREATE INDEX IF NOT EXISTS payments_booking_time ON booking_payments(booking_id,created_at);
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS booked_hourly_rate INTEGER;
 UPDATE bookings SET booked_hourly_rate=price / GREATEST(1,CEIL(EXTRACT(EPOCH FROM (end_at-start_at))/3600)::integer) WHERE booked_hourly_rate IS NULL;
 CREATE INDEX IF NOT EXISTS bookings_facility_time ON bookings(facility_id,start_at,end_at);

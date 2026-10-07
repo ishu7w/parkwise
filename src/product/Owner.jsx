@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PaymentControl } from "./Operations";
 import { Plus, MapPin } from "lucide-react";
 import {
   mutate,
@@ -381,15 +382,22 @@ export function OwnerFacilities() {
 export function OwnerBookings() {
   const resource = useResource("/owner/bookings"),
     [filter, setFilter] = useState("active"),
+    [search, setSearch] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(null),
     [message, setMessage] = useState("");
-  const records = (resource.data || []).filter(
-    (b) =>
-      filter === "all" ||
-      (filter === "active" && ["reserved", "parked"].includes(b.status)) ||
-      b.status === filter,
-  );
+  const records = (resource.data || [])
+    .filter((b) =>
+      [b.reference, b.plate, b.driver_name, b.facility_name].some((v) =>
+        v.toLowerCase().includes(search.toLowerCase()),
+      ),
+    )
+    .filter(
+      (b) =>
+        filter === "all" ||
+        (filter === "active" && ["reserved", "parked"].includes(b.status)) ||
+        b.status === filter,
+    );
   const all = resource.data || [];
   async function change(b, action) {
     setBusy(b.id);
@@ -430,6 +438,14 @@ export function OwnerBookings() {
           </div>
         ))}
       </div>
+      <label className="pw-owner-search">
+        Search reservations
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Reference, vehicle plate, driver or facility"
+        />
+      </label>
       <div className="pw-tabs">
         {[
           ["active", "Upcoming & active"],
@@ -468,6 +484,7 @@ export function OwnerBookings() {
                     "Facility / bay",
                     "Arrival / departure",
                     "Status",
+                    "Payment",
                     "Action",
                   ].map((h) => (
                     <th key={h}>{h}</th>
@@ -507,6 +524,20 @@ export function OwnerBookings() {
                         )}
                     </td>
                     <td>
+                      <PaymentControl
+                        booking={b}
+                        onUpdated={resource.refresh}
+                      />
+                    </td>
+                    <td>
+                      <a
+                        className="pw-button"
+                        href={
+                          "?booking=" + encodeURIComponent(b.id) + "#OwnerHelp"
+                        }
+                      >
+                        Booking help
+                      </a>
                       {b.status === "reserved" ? (
                         <button
                           className="pw-primary"

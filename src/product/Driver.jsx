@@ -453,6 +453,19 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
                               : "Reserve a bay"}
                       </button>
                     </form>
+                    {facility.reviews.length > 0 && (
+                      <div className="pw-reviews">
+                        <h3>Verified-stay reviews</h3>
+                        {facility.reviews.map((r, i) => (
+                          <article key={i}>
+                            <strong>
+                              {r.rating} / 5 · {r.driver_name}
+                            </strong>
+                            <p>{r.comment}</p>
+                          </article>
+                        ))}
+                      </div>
+                    )}
                     <p className="pw-small">
                       An exact compatible bay is assigned when your reservation
                       is confirmed. Check-in grace: 30 minutes after arrival.

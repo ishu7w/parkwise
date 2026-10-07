@@ -558,6 +558,293 @@ test("extensions preserve booked rates, reach owners, reject conflicts and enfor
     400,
   );
 });
+test("booking help, reviews, payment ledger, reports and account security work together", async () => {
+  const d = await register("driver", 6);
+  const f = (
+    await request("/owner/facilities", {
+      cookie: owner.cookie,
+      body: {
+        name: "Operational Parking",
+        address: "Main operational road, Pune",
+        floor: "Ground",
+        instructions: "Use the east gate.",
+        latitude: 18.52,
+        longitude: 73.85,
+        hourlyRate: 40,
+        standard: 1,
+      },
+    })
+  ).result.data.id;
+  await request("/owner/facilities/" + f, {
+    cookie: owner.cookie,
+    method: "PATCH",
+    body: { published: true },
+  });
+  const b = (
+    await request("/bookings", {
+      cookie: d.cookie,
+      body: { facilityId: f, plate: "MH12OPS1", duration: 60 },
+    })
+  ).result.data.id;
+  assert.equal((await request("/health")).result.data.database, "connected");
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/review", {
+        cookie: d.cookie,
+        body: { rating: 5, comment: "Good parking." },
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/messages", {
+        cookie: d.cookie,
+        body: { message: "Which entrance should I use?" },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/messages", {
+        cookie: otherOwner.cookie,
+      })
+    ).status,
+    404,
+  );
+  const thread = await request("/bookings/" + b + "/messages", {
+    cookie: owner.cookie,
+  });
+  assert.equal(thread.result.data.messages[0].actor_role, "driver");
+  await request("/bookings/" + b + "/help", {
+    cookie: owner.cookie,
+    method: "PATCH",
+    body: { resolved: true },
+  });
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/messages", {
+        cookie: d.cookie,
+        body: { message: "Another question" },
+      })
+    ).status,
+    409,
+  );
+  await request("/bookings/" + b + "/help", {
+    cookie: d.cookie,
+    method: "PATCH",
+    body: { resolved: false },
+  });
+  await request("/bookings/" + b + "/messages", {
+    cookie: owner.cookie,
+    body: { message: "Please use the east entrance." },
+  });
+  assert.equal(
+    (await request("/help", { cookie: d.cookie })).result.data.length,
+    1,
+  );
+  assert.equal(
+    (await request("/help", { cookie: otherOwner.cookie })).result.data.length,
+    0,
+  );
+  const payment = { method: "cash", amount: 4000, confirmReceived: true };
+  assert.equal(
+    (
+      await request("/owner/bookings/" + b + "/payment", {
+        cookie: owner.cookie,
+        body: payment,
+      })
+    ).status,
+    409,
+  );
+  await request("/owner/bookings/" + b + "/check-in", {
+    cookie: owner.cookie,
+    body: {},
+  });
+  assert.equal(
+    (
+      await request("/owner/bookings/" + b + "/payment", {
+        cookie: d.cookie,
+        body: payment,
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request("/owner/bookings/" + b + "/payment", {
+        cookie: otherOwner.cookie,
+        body: payment,
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await request("/owner/bookings/" + b + "/payment", {
+        cookie: owner.cookie,
+        body: { ...payment, confirmReceived: false },
+      })
+    ).status,
+    400,
+  );
+  const race = await Promise.all([
+    request("/owner/bookings/" + b + "/payment", {
+      cookie: owner.cookie,
+      body: payment,
+    }),
+    request("/owner/bookings/" + b + "/payment", {
+      cookie: owner.cookie,
+      body: payment,
+    }),
+  ]);
+  assert.deepEqual(race.map((x) => x.status).sort(), [200, 409]);
+  assert.equal(
+    (await request("/bookings", { cookie: d.cookie })).result.data[0]
+      .paid_total,
+    4000,
+  );
+  await request("/bookings/" + b + "/extend", {
+    cookie: d.cookie,
+    body: { minutes: 60 },
+  });
+  assert.equal(
+    (
+      await request("/owner/bookings/" + b + "/payment", {
+        cookie: owner.cookie,
+        body: { ...payment, amount: 8000 },
+      })
+    ).status,
+    409,
+  );
+  await request("/owner/bookings/" + b + "/payment", {
+    cookie: owner.cookie,
+    body: { ...payment, method: "upi" },
+  });
+  const pass = (await request("/bookings", { cookie: d.cookie })).result
+    .data[0];
+  assert.equal(pass.paid_total, 8000);
+  assert.equal(pass.payments.length, 2);
+  await request("/owner/bookings/" + b + "/check-out", {
+    cookie: owner.cookie,
+    body: {},
+  });
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/review", {
+        cookie: d.cookie,
+        body: { rating: 4, comment: "Clear directions and a marked bay." },
+      })
+    ).status,
+    200,
+  );
+  await request("/bookings/" + b + "/review", {
+    cookie: d.cookie,
+    body: { rating: 5, comment: "Updated review for my completed stay." },
+  });
+  const details = (await request("/facilities/" + f)).result.data;
+  assert.equal(details.reviews.length, 1);
+  assert.equal(details.reviews[0].rating, 5);
+  assert.equal(details.reviews[0].driver_name, "Test");
+  assert.equal(
+    (
+      await request("/bookings/" + b + "/review", {
+        cookie: owner.cookie,
+        body: { rating: 5, comment: "Fake review" },
+      })
+    ).status,
+    403,
+  );
+  const range = new URLSearchParams({
+    from: new Date(Date.now() - 86400000).toISOString(),
+    to: new Date(Date.now() + 86400000).toISOString(),
+  });
+  const report = await request("/owner/report?" + range, {
+    cookie: owner.cookie,
+  });
+  assert.equal(report.status, 200);
+  assert.equal(report.result.data.find((x) => x.id === b).paid_total, 8000);
+  assert.equal(
+    (await request("/owner/report?" + range, { cookie: otherOwner.cookie }))
+      .result.data.length,
+    0,
+  );
+  assert.equal(
+    (await request("/owner/report?" + range, { cookie: d.cookie })).status,
+    403,
+  );
+  assert.equal(
+    (
+      await request("/owner/report?from=2020-01-01&to=2026-01-01", {
+        cookie: owner.cookie,
+      })
+    ).status,
+    400,
+  );
+  const profile = await request("/account", {
+    cookie: d.cookie,
+    method: "PATCH",
+    body: { name: "Updated Driver" },
+  });
+  assert.equal(profile.result.data.user.name, "Updated Driver");
+  assert.equal(
+    (
+      await request("/account/password", {
+        cookie: d.cookie,
+        body: {
+          currentPassword: "Wrong-pass-1234",
+          newPassword: "New-strong-pass-1234",
+        },
+      })
+    ).status,
+    401,
+  );
+  const password = await request("/account/password", {
+    cookie: d.cookie,
+    body: {
+      currentPassword: "Strong-pass-1234",
+      newPassword: "New-strong-pass-1234",
+    },
+  });
+  assert.equal(password.status, 200);
+  assert.equal((await request("/bookings", { cookie: d.cookie })).status, 401);
+  assert.equal(
+    (await request("/session", { cookie: password.cookie })).result.data.user
+      .name,
+    "Updated Driver",
+  );
+  assert.equal(
+    (
+      await request("/auth/login", {
+        body: { email: "driver6@example.test", password: "Strong-pass-1234" },
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (
+      await request("/auth/login", {
+        body: {
+          email: "driver6@example.test",
+          password: "New-strong-pass-1234",
+        },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await request("/account", {
+        cookie: password.cookie,
+        method: "PATCH",
+        body: { name: "Hacker" },
+        origin: "not-a-url",
+      })
+    ).status,
+    403,
+  );
+});
 test("sign-out invalidates the server session and activity is owner scoped", async () => {
   assert.ok(
     (await request("/owner/activity", { cookie: owner.cookie })).result.data

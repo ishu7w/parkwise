@@ -45,16 +45,12 @@ export async function publicFacilities(db, input) {
   await reconcile(db);
   const q = String(input.q || "").slice(0, 100);
   const { rows } = await db.query(
-    "SELECT id,name,address,latitude,longitude,hourly_rate,floor,instructions FROM facilities WHERE published AND (name ILIKE $1 OR address ILIKE $1) ORDER BY created_at DESC LIMIT 100",
-    ["%" + q + "%"],
+    `SELECT f.id,f.name,f.address,f.latitude,f.longitude,f.hourly_rate,f.floor,f.instructions,
+     (SELECT count(*)::int FROM bays b WHERE b.facility_id=f.id AND b.category=$2 AND NOT b.blocked AND NOT EXISTS(SELECT 1 FROM bookings r WHERE r.bay_id=b.id AND (r.status='parked' OR (r.status='reserved' AND r.start_at<$4 AND r.end_at>$3)))) AS available
+     FROM facilities f WHERE f.published AND (f.name ILIKE $1 OR f.address ILIKE $1) ORDER BY f.created_at DESC LIMIT 100`,
+    ["%" + q + "%", window.category, window.startAt, window.endAt],
   );
-  return Promise.all(
-    rows.map(async (f) => ({
-      ...f,
-      available: (await availableBays(db, f.id, window)).length,
-      window,
-    })),
-  );
+  return rows.map((f) => ({ ...f, window }));
 }
 export async function publicFacility(db, id, input) {
   const { rows } = await db.query(
@@ -136,7 +132,9 @@ export async function reserve(db, user, input) {
   await reconcile(db);
   return db.transaction(async (tx) => {
     // The driver lock prevents concurrent overlapping reservations across different facilities.
-    await tx.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [user.id]);
+    await tx.query("SELECT id FROM users WHERE id=$1 FOR NO KEY UPDATE", [
+      user.id,
+    ]);
     const { rows } = await tx.query(
       "SELECT * FROM facilities WHERE id=$1 AND published FOR UPDATE",
       [facilityId],
@@ -250,7 +248,9 @@ export async function extendBooking(db, user, id, input) {
   if (!existing.rows.length) fail(404, "Booking not found.");
   return db.transaction(async (tx) => {
     // Use the same driver → facility lock order as reservation creation.
-    await tx.query("SELECT id FROM users WHERE id=$1 FOR UPDATE", [user.id]);
+    await tx.query("SELECT id FROM users WHERE id=$1 FOR NO KEY UPDATE", [
+      user.id,
+    ]);
     await tx.query("SELECT id FROM facilities WHERE id=$1 FOR UPDATE", [
       existing.rows[0].facility_id,
     ]);

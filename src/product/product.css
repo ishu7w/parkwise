@@ -1231,3 +1231,96 @@ textarea {
     flex-wrap: wrap;
   }
 }
+.pw-help-row {
+  width: 100%;
+  text-align: left;
+  flex-direction: column;
+  align-items: start !important;
+  margin-bottom: 12px;
+}
+.pw-help-row[aria-pressed="true"] {
+  border-color: var(--forest);
+}
+.pw-messages {
+  max-height: 500px;
+  overflow: auto;
+  margin: 20px 0;
+}
+.pw-messages article,
+.pw-reviews article {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.pw-messages small {
+  display: block;
+  color: var(--muted);
+}
+.pw-messages p,
+.pw-reviews p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.pw-review-form {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.pw-review-form .pw-tool-form {
+  margin-top: 16px;
+}
+.pw-tool-form textarea,
+.pw-tool-form select,
+.pw-owner-search input,
+.pw-discovery-filters input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--forest);
+  font: inherit;
+}
+.pw-owner-search {
+  display: grid;
+  gap: 8px;
+  margin: 24px 0;
+  max-width: 600px;
+}
+.pw-payment-control {
+  min-width: 180px;
+  max-width: 260px;
+}
+.pw-payment-control select {
+  padding: 8px;
+  width: 100%;
+  margin: 8px 0;
+}
+.pw-payment-control p {
+  font-size: 12px;
+}
+.pw-reviews {
+  margin: 24px 0;
+}
+.pw-header nav {
+  min-width: 0;
+}
+.pw-header nav a {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (max-width: 1100px) {
+  .pw-header {
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+  .pw-header nav {
+    order: 3;
+    flex-basis: 100%;
+    overflow: auto;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .pw-account {
+    margin-left: auto;
+  }
+}

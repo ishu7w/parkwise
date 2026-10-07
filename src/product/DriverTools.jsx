@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ReviewForm } from "./Operations";
 import { calendarFile, bookingFile } from "./driverFiles";
 import { mutate, useResource, money, date } from "./api";
 import { Heading, Panel, Notice, Empty, SyncStatus } from "./Common";
@@ -218,6 +219,25 @@ export function BookingTools({ booking: b, onUpdated }) {
         </p>
       )}
       <div className="pw-tool-actions">
+        <a
+          className="pw-button"
+          href={"?booking=" + encodeURIComponent(b.id) + "#Help"}
+        >
+          Get help with this booking
+        </a>
+        {b.paid_total > 0 && (
+          <button
+            onClick={() =>
+              download(
+                b.reference + "-payments.txt",
+                `PARKWISE — PAYMENT RECORD\n${b.reference}\n${b.facility_name}\nVehicle ${b.plate}\nRecorded received: ${money(b.paid_total)}\n${b.payments.map((p) => `${date(p.created_at)} · ${p.method} · ${money(p.amount)}`).join("\n")}\nRemaining booked balance: ${money(b.price - b.paid_total)}\nRecorded by the parking operator. Not a tax invoice.`,
+                "text/plain;charset=utf-8",
+              )
+            }
+          >
+            Download payment record
+          </button>
+        )}
         <button
           onClick={() =>
             download(
@@ -295,6 +315,13 @@ export function BookingTools({ booking: b, onUpdated }) {
             </p>
           )}
         </div>
+      )}
+      {b.status === "completed" && (
+        <ReviewForm
+          key={JSON.stringify(b.review)}
+          booking={b}
+          onUpdated={onUpdated}
+        />
       )}
       {error && <Notice error>{error}</Notice>}
       {active && (

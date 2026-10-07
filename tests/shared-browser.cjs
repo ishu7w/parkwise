@@ -204,7 +204,7 @@ const path = require("node:path");
     await driver.reload();
     await driver.getByText("My everyday car", { exact: true }).waitFor();
     await driver.screenshot({
-      path: "docs/screenshots/driver-garage-tools.png",
+      path: "docs/screenshots/driver-garage-launch.png",
       fullPage: true,
     });
     await driver.goto("http://localhost:5175/#Discover");
@@ -221,8 +221,10 @@ const path = require("node:path");
     await driver.locator(".pw-pass").waitFor();
 
     assert.match(await driver.locator(".pw-assignment").innerText(), /A01/);
-    if ((await driver.locator("details").getAttribute("open")) === null)
-      await driver.locator("summary").click();
+    if (
+      (await driver.locator(".pw-pass details").getAttribute("open")) === null
+    )
+      await driver.locator(".pw-pass summary").click();
     const directions = await driver
       .getByRole("link", { name: "Directions to entrance" })
       .getAttribute("href");
@@ -241,12 +243,117 @@ const path = require("node:path");
       .click();
     await driver.getByRole("button", { name: "Refresh", exact: true }).click();
     await driver.locator(".pw-status.parked").waitFor();
+    await owner
+      .getByRole("button", { name: "Record payment", exact: true })
+      .click();
+    await owner
+      .getByRole("button", { name: "Confirm money received", exact: true })
+      .click();
+    await owner.getByText("₹80 recorded", { exact: true }).waitFor();
+    await driver.getByRole("button", { name: "Refresh", exact: true }).click();
+    await driver
+      .getByRole("button", { name: "Download payment record", exact: true })
+      .waitFor();
+    const receiptDownload = driver.waitForEvent("download");
+    await driver
+      .getByRole("button", { name: "Download payment record", exact: true })
+      .click();
+    const receipt = await receiptDownload;
+    assert.match(
+      await fs.readFile(await receipt.path(), "utf8"),
+      /Recorded received: ₹80/,
+    );
+    await driver
+      .getByRole("link", { name: "Get help with this booking", exact: true })
+      .click();
+    await driver
+      .getByLabel("Message", { exact: true })
+      .fill("Where is the pedestrian exit?");
+    await driver
+      .getByRole("button", { name: "Send message", exact: true })
+      .click();
+    await driver
+      .getByText("Where is the pedestrian exit?", { exact: true })
+      .waitFor();
+    await owner
+      .getByRole("link", { name: "Booking help", exact: true })
+      .click();
+    await owner
+      .getByText("Where is the pedestrian exit?", { exact: true })
+      .waitFor();
+    await owner
+      .getByLabel("Message", { exact: true })
+      .fill("Use the marked east pedestrian exit.");
+    await owner
+      .getByRole("button", { name: "Send message", exact: true })
+      .click();
+    await driver
+      .getByText("Use the marked east pedestrian exit.", { exact: true })
+      .waitFor();
+    await driver
+      .getByRole("button", { name: "Mark resolved", exact: true })
+      .click();
+    await driver
+      .getByText("This conversation is resolved.", { exact: true })
+      .waitFor();
+    await owner
+      .getByRole("navigation")
+      .getByRole("link", { name: /Reports/ })
+      .click();
+    await owner
+      .getByRole("button", { name: "Export bookings CSV", exact: true })
+      .waitFor();
+    const csvDownload = owner.waitForEvent("download");
+    await owner
+      .getByRole("button", { name: "Export bookings CSV", exact: true })
+      .click();
+    const csv = await csvDownload;
+    assert.match(
+      await fs.readFile(await csv.path(), "utf8"),
+      /"80.00","80.00","0.00"/,
+    );
+    await owner.screenshot({
+      path: "docs/screenshots/owner-reports-launch.png",
+      fullPage: true,
+    });
+    await owner
+      .getByRole("navigation")
+      .getByRole("link", { name: /Arrivals/ })
+      .click();
     await owner.getByRole("button", { name: "Check out", exact: true }).click();
+    await driver.getByRole("navigation").getByRole("link", { name: /My parking/ }).click();
     await driver
       .getByRole("button", { name: "All parking", exact: true })
       .click();
     await driver.getByRole("button", { name: "Refresh", exact: true }).click();
     await driver.locator(".pw-status.completed").waitFor();
+    await driver.locator(".pw-review-form summary").click();
+    await driver
+      .getByLabel("Your review", { exact: true })
+      .fill("Clear instructions and a well marked parking bay.");
+    await driver
+      .getByRole("button", { name: "Save review", exact: true })
+      .click();
+    await driver.getByText("Edit your review", { exact: true }).waitFor();
+    await driver
+      .getByRole("link", { name: "Account settings", exact: true })
+      .click();
+    await driver
+      .getByLabel("Full name", { exact: true })
+      .fill("Parking Driver Updated");
+    await driver
+      .getByRole("button", { name: "Save profile", exact: true })
+      .click();
+    await driver.getByText("Account name updated.", { exact: true }).waitFor();
+    await driver
+      .getByRole("navigation")
+      .getByRole("link", { name: /My parking/ })
+      .click();
+    await driver
+      .getByRole("button", { name: "All parking", exact: true })
+      .click();
+    await driver.locator(".pw-pass").waitFor();
+
     await owner
       .getByRole("navigation")
       .getByRole("link", { name: /Facilities/ })
@@ -268,8 +375,10 @@ const path = require("node:path");
       )
       .waitFor();
     await driver.getByRole("button", { name: "Refresh", exact: true }).click();
-    if ((await driver.locator("details").getAttribute("open")) === null)
-      await driver.locator("summary").click();
+    if (
+      (await driver.locator(".pw-pass details").getAttribute("open")) === null
+    )
+      await driver.locator(".pw-pass summary").click();
     await driver
       .getByText(
         "Use the east entrance. Ask the attendant to guide you to the posted bay label.",
@@ -278,8 +387,18 @@ const path = require("node:path");
       .waitFor();
     for (const width of [390, 768, 1440]) {
       for (const [page, routes] of [
-        [driver, ["Discover", "MyParking", "Garage"]],
-        [owner, ["Owner", "Facilities", "OwnerActivity"]],
+        [driver, ["Discover", "MyParking", "Garage", "Help", "Account"]],
+        [
+          owner,
+          [
+            "Owner",
+            "Facilities",
+            "OwnerActivity",
+            "Reports",
+            "OwnerHelp",
+            "Account",
+          ],
+        ],
       ]) {
         await page.setViewportSize({ width, height: 1000 });
         for (const route of routes) {
@@ -306,15 +425,17 @@ const path = require("node:path");
     await driver.goto("http://localhost:5175/#MyParking");
     await driver.getByRole("button", { name: "All parking" }).click();
     await driver.locator(".pw-pass").waitFor();
-    if ((await driver.locator("details").getAttribute("open")) === null)
-      await driver.locator("summary").click();
+    if (
+      (await driver.locator(".pw-pass details").getAttribute("open")) === null
+    )
+      await driver.locator(".pw-pass summary").click();
     await driver.locator("iframe").scrollIntoViewIfNeeded();
     await driver
       .frameLocator("iframe")
       .locator("#map")
       .waitFor({ timeout: 15000 });
     await driver.screenshot({
-      path: "docs/screenshots/driver-pass-tools.png",
+      path: "docs/screenshots/driver-pass-launch.png",
       fullPage: true,
     });
     await driver.goto("http://localhost:5175/#Discover");
@@ -327,7 +448,7 @@ const path = require("node:path");
       .locator("#map")
       .waitFor({ timeout: 15000 });
     await driver.screenshot({
-      path: "docs/screenshots/driver-discovery-tools.png",
+      path: "docs/screenshots/driver-discovery-launch.png",
       fullPage: true,
     });
     assert.deepEqual(errors, []);
@@ -346,7 +467,7 @@ const path = require("node:path");
     );
     await reopened.close();
     console.log(
-      "PASS separate driver/owner accounts, publication, shared booking, bidirectional status, entrance directions, bay plan, persistent database driver garage, saved parking, extensions, calendar download, guest checkout continuity and six responsive pages",
+      "PASS separate driver/owner accounts, publication, shared booking, bidirectional status, entrance directions, bay plan, persistent database driver garage, saved parking, extensions, calendar download, guest checkout continuity payment recording, support messages, reports, reviews, account settings and eleven responsive page/role combinations",
     );
   } finally {
     await browser.close();

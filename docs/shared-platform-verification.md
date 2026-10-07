@@ -25,3 +25,10 @@ Production cross-device operation requires a managed PostgreSQL DATABASE_URL in 
 - Extensions preserve the original hourly rate after owner rate edits, propagate the new departure/price to owners and add an activity entry. Future bay/vehicle conflicts, foreign accounts, completed bookings and the eight-hour limit are enforced on the server.
 - Browser checks cover saved parking, saved vehicle selection, extension confirmation, calendar downloads, reload persistence and the garage at mobile/tablet/desktop widths.
 - Calendar exports use UTC, escape metadata, fold long lines and include a reminder 15 minutes before departure. Booking downloads explicitly describe pay-at-facility and are not payment receipts.
+
+## Operations release
+
+- 36 automated tests pass, including support participant isolation, review eligibility, payment races/overpayment prevention, balances after extensions, scoped date-range reports, CSV formula escaping, current-password verification and session invalidation.
+- End-to-end browser checks verify owner payment recording, driver payment-record downloads, messages in both directions, resolution, CSV export, checkout, reviews and profile editing. Eleven page/role combinations are checked at 390, 768 and 1440 pixels with no document overflow or runtime errors.
+- Production build and configured TypeScript checks pass. TypeScript currently covers the configured TS component files; product JSX is validated through the build and runtime tests. Production dependency audit reports zero vulnerabilities.
+- All authenticated test flows use isolated temporary databases. No test facilities or transactions are inserted in production.

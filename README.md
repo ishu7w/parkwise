@@ -35,6 +35,11 @@ Use separate browser sessions for the two accounts. Both must reach the same ser
 - Owner check-in/check-out, publication controls, facility details editing, maintenance blocks and activity records.
 - Automatic unclaimed-reservation expiry 30 minutes after booked arrival; checked-in vehicles continue to occupy their bay until checkout.
 - Price snapshots, in INR, payable at the facility; no online payment collection is claimed.
+- Booking-linked driver/owner help conversations with resolution and reopening.
+- Cash, UPI and card payment records entered by the operator after receiving money; outstanding balance and downloadable payment records.
+- Owner reservation search and date-range CSV reports separating booking amounts from recorded collections.
+- Completed-stay reviews, name editing and password changes that revoke previous sessions.
+- Database health checks, security headers, mutation limits and automated CI verification.
 - Shared database refresh every five seconds while the page is visible and on focus.
 
 ## Production database and Vercel
@@ -61,3 +66,7 @@ See [detailed rebuild plan](docs/driver-owner-rebuild-plan.md) and [shared-platf
 The facility owner supplies the entrance coordinates and physical bay labels. The internal plan is a schematic, not indoor GPS. The product currently supports one floor label per facility and up to 150 bays. Registration has no email verification/reset service yet; map directions open an external provider. Publication should use actual locations and posted matching bay labels. Parking payments, gate sensors and license-plate cameras are not integrated.
 
 The previous attendant implementation is preserved separately in `src/AttendantApp.jsx`; prior browser-local records are left intact and are not imported into shared accounts automatically.
+
+## Production launch roadmap
+
+See [production roadmap](docs/production-roadmap.md) for researched competitor workflows, priorities, acceptance criteria and the operating runbook. Pay-at-facility is confirmed for the first launch. This release supports a tested operational pilot; unrestricted public launch remains gated on verified facilities, email recovery, business policies, separate preview data, monitoring and an exercised backup restore. Payment records are operator acknowledgements, not tax invoices or bank settlement records.

@@ -62,5 +62,9 @@ async function connect() {
       await tx.query(schema);
     });
   else await db.exec(schema);
+  await db.query("DELETE FROM sessions WHERE expires_at<now()");
+  await db.query(
+    "DELETE FROM auth_attempts WHERE reset_at<now()-interval '1 day'",
+  );
   return db;
 }

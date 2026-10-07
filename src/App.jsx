@@ -64,7 +64,7 @@ export default function App() {
   useEffect(() => {
     document.title = `${ownerPage ? "Owner" : "Driver"} · Parkwise`;
     window.scrollTo(0, 0);
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (loading || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const ctx = gsap.context(
       () =>
         gsap.from(".pw-heading,.pw-auth-card", {

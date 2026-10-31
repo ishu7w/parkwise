@@ -81,27 +81,20 @@ export function OwnerFacilities() {
                 placeholder="Building, road, locality and city"
               />
             </label>
-            <label>
-              Entrance latitude
+            <label className="pw-wide">
+              Google Maps location link
               <input
-                name="latitude"
+                name="locationUrl"
+                aria-label="Google Maps location link"
+                type="url"
                 required
-                type="number"
-                step="any"
-                min="-90"
-                max="90"
+                maxLength={2048}
+                placeholder="Paste a Google Maps share link"
               />
-            </label>
-            <label>
-              Entrance longitude
-              <input
-                name="longitude"
-                required
-                type="number"
-                step="any"
-                min="-180"
-                max="180"
-              />
+              <small>
+                In Google Maps, open the parking entrance and choose Share →
+                Copy link.
+              </small>
             </label>
             <label>
               Floor / level
@@ -281,29 +274,23 @@ export function OwnerFacilities() {
                     maxLength={240}
                   />
                 </label>
-                <label>
-                  Entrance latitude
+                <label className="pw-wide">
+                  Google Maps location link
                   <input
-                    name="latitude"
-                    defaultValue={f.latitude}
+                    name="locationUrl"
+                aria-label="Google Maps location link"
+                    type="url"
                     required
-                    type="number"
-                    step="any"
-                    min="-90"
-                    max="90"
+                    maxLength={2048}
+                    defaultValue={
+                      f.location_url ||
+                      `https://www.google.com/maps/search/?api=1&query=${f.latitude},${f.longitude}`
+                    }
                   />
-                </label>
-                <label>
-                  Entrance longitude
-                  <input
-                    name="longitude"
-                    defaultValue={f.longitude}
-                    required
-                    type="number"
-                    step="any"
-                    min="-180"
-                    max="180"
-                  />
+                  <small>
+                    In Google Maps, open the parking entrance and choose Share →
+                    Copy link.
+                  </small>
                 </label>
                 <label>
                   Floor / level

@@ -1,5 +1,6 @@
 import { randomUUID, randomBytes } from "node:crypto";
-import { fail, text, integer, coordinate } from "./security.js";
+import { fail, text, integer } from "./security.js";
+import { facilityLocation } from "./location.js";
 export const categories = ["standard", "accessible", "ev"];
 export function bookingWindow(input) {
   const now = Date.now(),
@@ -45,7 +46,7 @@ export async function publicFacilities(db, input) {
   await reconcile(db);
   const q = String(input.q || "").slice(0, 100);
   const { rows } = await db.query(
-    `SELECT f.id,f.name,f.address,f.latitude,f.longitude,f.hourly_rate,f.floor,f.instructions,
+    `SELECT f.id,f.name,f.address,f.latitude,f.longitude,f.location_url,f.hourly_rate,f.floor,f.instructions,
      (SELECT count(*)::int FROM bays b WHERE b.facility_id=f.id AND b.category=$2 AND NOT b.blocked AND NOT EXISTS(SELECT 1 FROM bookings r WHERE r.bay_id=b.id AND (r.status='parked' OR (r.status='reserved' AND r.start_at<$4 AND r.end_at>$3)))) AS available
      FROM facilities f WHERE f.published AND (f.name ILIKE $1 OR f.address ILIKE $1) ORDER BY f.created_at DESC LIMIT 100`,
     ["%" + q + "%", window.category, window.startAt, window.endAt],
@@ -54,7 +55,7 @@ export async function publicFacilities(db, input) {
 }
 export async function publicFacility(db, id, input) {
   const { rows } = await db.query(
-    "SELECT id,name,address,latitude,longitude,hourly_rate,floor,instructions FROM facilities WHERE id=$1 AND published",
+    "SELECT id,name,address,latitude,longitude,location_url,hourly_rate,floor,instructions FROM facilities WHERE id=$1 AND published",
     [id],
   );
   if (!rows[0]) fail(404, "This parking facility is unavailable.");
@@ -79,8 +80,7 @@ export async function createFacility(db, user, input) {
     address = text(input.address, "Address", 8, 240),
     floor = text(input.floor, "Floor", 1, 40),
     instructions = text(input.instructions, "Arrival instructions", 5, 1000);
-  const latitude = coordinate(input.latitude, "latitude", -90, 90),
-    longitude = coordinate(input.longitude, "longitude", -180, 180),
+  const { latitude, longitude, locationUrl } = facilityLocation(input),
     rate = integer(input.hourlyRate, "Hourly rate", 0, 10000) * 100;
   const counts = categories.map((c) =>
     integer(input[c] ?? 0, `${c} bays`, 0, 100),
@@ -93,7 +93,7 @@ export async function createFacility(db, user, input) {
   return db.transaction(async (tx) => {
     const id = randomUUID();
     await tx.query(
-      "INSERT INTO facilities(id,owner_id,name,address,latitude,longitude,hourly_rate,floor,instructions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      "INSERT INTO facilities(id,owner_id,name,address,latitude,longitude,location_url,hourly_rate,floor,instructions) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
       [
         id,
         user.id,
@@ -101,6 +101,7 @@ export async function createFacility(db, user, input) {
         address,
         latitude,
         longitude,
+        locationUrl,
         rate,
         floor,
         instructions,
@@ -296,7 +297,7 @@ export async function extendBooking(db, user, id, input) {
     return { id, end_at: end.toISOString(), price };
   });
 }
-const bookingSelect = `SELECT r.*,f.name AS facility_name,f.address,f.latitude,f.longitude,f.floor,f.instructions,b.label AS bay_label,b.category,u.name AS driver_name FROM bookings r JOIN facilities f ON f.id=r.facility_id JOIN bays b ON b.id=r.bay_id JOIN users u ON u.id=r.driver_id`;
+const bookingSelect = `SELECT r.*,f.name AS facility_name,f.address,f.latitude,f.longitude,f.location_url,f.floor,f.instructions,b.label AS bay_label,b.category,u.name AS driver_name FROM bookings r JOIN facilities f ON f.id=r.facility_id JOIN bays b ON b.id=r.bay_id JOIN users u ON u.id=r.driver_id`;
 export async function bookings(db, user) {
   await reconcile(db);
   const { rows } = await db.query(
@@ -451,12 +452,11 @@ export async function updateFacility(db, user, id, input) {
           5,
           1000,
         ),
-        latitude = coordinate(input.latitude, "latitude", -90, 90),
-        longitude = coordinate(input.longitude, "longitude", -180, 180),
+        { latitude, longitude, locationUrl } = facilityLocation(input, f),
         rate = integer(input.hourlyRate, "Hourly rate", 0, 10000) * 100;
       await tx.query(
-        "UPDATE facilities SET name=$1,address=$2,floor=$3,instructions=$4,latitude=$5,longitude=$6,hourly_rate=$7 WHERE id=$8",
-        [name, address, floor, instructions, latitude, longitude, rate, id],
+        "UPDATE facilities SET name=$1,address=$2,floor=$3,instructions=$4,latitude=$5,longitude=$6,location_url=$7,hourly_rate=$8 WHERE id=$9",
+        [name, address, floor, instructions, latitude, longitude, locationUrl, rate, id],
       );
       await activity(
         tx,

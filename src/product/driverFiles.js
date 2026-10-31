@@ -55,5 +55,5 @@ export function calendarFile(b) {
     .join("\r\n");
 }
 export function bookingFile(b) {
-  return `PARKWISE — BOOKING DETAILS\n${b.reference}\nStatus: ${b.status}\n\n${b.facility_name}\n${b.address}\nEntrance: ${b.latitude}, ${b.longitude}\nBay: ${b.bay_label} · ${b.floor}\nVehicle: ${b.plate}\nArrival: ${date(b.start_at)}\nDeparture: ${date(b.end_at)}\nAmount: ${money(b.price)} — pay at facility\n\n${b.instructions}\n\nThis document is a booking record, not proof of payment. Check-in is confirmed by the parking owner.\n`;
+  return `PARKWISE — BOOKING DETAILS\n${b.reference}\nStatus: ${b.status}\n\n${b.facility_name}\n${b.address}\nEntrance: ${b.location_url || `${b.latitude}, ${b.longitude}`}\nBay: ${b.bay_label} · ${b.floor}\nVehicle: ${b.plate}\nArrival: ${date(b.start_at)}\nDeparture: ${date(b.end_at)}\nAmount: ${money(b.price)} — pay at facility\n\n${b.instructions}\n\nThis document is a booking record, not proof of payment. Check-in is confirmed by the parking owner.\n`;
 }

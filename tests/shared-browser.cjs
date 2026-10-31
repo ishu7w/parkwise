@@ -100,8 +100,7 @@ const path = require("node:path");
     for (const [label, value] of [
       ["Facility name", "Integration Parking"],
       ["Street address", "Pune Test Road, Maharashtra"],
-      ["Entrance latitude", "18.52"],
-      ["Entrance longitude", "73.85"],
+      ["Google Maps location link", "https://www.google.com/maps/search/?api=1&query=18.52,73.85"],
       ["Floor / level", "Ground level"],
       ["Hourly rate (₹)", "40"],
       ["Standard bays", "2"],
@@ -230,7 +229,7 @@ const path = require("node:path");
     )
       await driver.locator(".pw-pass summary").click();
     const directions = await driver
-      .getByRole("link", { name: "Directions to entrance" })
+      .getByRole("link", { name: "Navigate with Google Maps" })
       .getAttribute("href");
     assert.match(directions, /18\.52%2C73\.85/);
     assert.match(await driver.locator(".pw-floorplan").innerText(), /Your bay/);

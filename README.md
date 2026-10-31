@@ -14,7 +14,7 @@ npm run dev
 Open http://localhost:5174/. This starts both the API and website. With no DATABASE_URL configured, a persistent embedded PostgreSQL database is created in `.data/parkwise`. Local server data is excluded from Git. Accounts and bookings survive refreshes and server restarts.
 
 1. Open Parking owner and create an owner account.
-2. Add a facility using its actual entrance coordinates, address, rate, bay counts and entry instructions.
+2. Add a facility using its Google Maps entrance link, address, rate, bay counts and entry instructions.
 3. Publish the facility to make it discoverable.
 4. In another browser or private window, create a driver account and reserve a bay.
 5. The reservation appears in the owner's Arrivals view. Confirm arrival and checkout; the driver's pass reflects those changes.
@@ -63,7 +63,7 @@ See [detailed rebuild plan](docs/driver-owner-rebuild-plan.md) and [shared-platf
 
 ## Operating boundaries
 
-The facility owner supplies the entrance coordinates and physical bay labels. The internal plan is a schematic, not indoor GPS. The product currently supports one floor label per facility and up to 150 bays. Registration has no email verification/reset service yet; map directions open an external provider. Publication should use actual locations and posted matching bay labels. Parking payments, gate sensors and license-plate cameras are not integrated.
+The facility owner supplies a Google Maps entrance link and physical bay labels. Links containing coordinates open navigation directly; shortened links open the location in Google Maps, where the driver can select Directions. The internal plan is a schematic, not indoor GPS. The product currently supports one floor label per facility and up to 150 bays. Registration has no email verification/reset service yet; map directions open an external provider. Publication should use actual locations and posted matching bay labels. Parking payments, gate sensors and license-plate cameras are not integrated.
 
 The previous attendant implementation is preserved separately in `src/AttendantApp.jsx`; prior browser-local records are left intact and are not imported into shared accounts automatically.
 

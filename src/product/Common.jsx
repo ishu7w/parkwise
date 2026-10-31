@@ -61,19 +61,27 @@ export function SyncStatus({ resource }) {
   );
 }
 export function EntranceMap({ facility }) {
+  const hasCoordinates =
+    facility.latitude != null && facility.longitude != null;
   const lat = Number(facility.latitude),
     lon = Number(facility.longitude),
-    delta = 0.004,
-    bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(",");
-  const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + "," + lon)}&travelmode=driving`;
+    delta = 0.004;
+  const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(",");
+  const directions = hasCoordinates
+    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lat + "," + lon)}&travelmode=driving&dir_action=navigate`
+    : facility.location_url;
   return (
     <div className="pw-entrance">
-      <iframe
-        title={"Entrance map for " + (facility.name || facility.facility_name)}
-        loading="eager"
-        referrerPolicy="no-referrer"
-        src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`}
-      />
+      {hasCoordinates && (
+        <iframe
+          title={
+            "Entrance map for " + (facility.name || facility.facility_name)
+          }
+          loading="eager"
+          referrerPolicy="no-referrer"
+          src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lon}`}
+        />
+      )}
       <div>
         <span className="pw-eyebrow">PARKING ENTRANCE</span>
         <p>
@@ -86,22 +94,15 @@ export function EntranceMap({ facility }) {
           target="_blank"
           rel="noreferrer"
         >
-          Directions to entrance
+          {hasCoordinates
+            ? "Navigate with Google Maps"
+            : "Open location in Google Maps"}
           <ArrowUpRight size={16} />
         </a>
         <small>
-          {lat.toFixed(5)}, {lon.toFixed(5)} ·{" "}
-          <a
-            href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=18/${lat}/${lon}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Open entrance map ↗
-          </a>
-        </small>
-        <small>
-          Entrance coordinates supplied by the parking owner. Directions open in
-          Google Maps.
+          {hasCoordinates
+            ? "Navigation opens in Google Maps."
+            : "Open the shared location, then choose Directions in Google Maps."}
         </small>
       </div>
     </div>

@@ -26,6 +26,7 @@ const sampleParking = [
 ];
 
 function distance(a, b) {
+  if (b.latitude == null || b.longitude == null) return Infinity;
   const rad = (v) => (v * Math.PI) / 180,
     dlat = rad(b.latitude - a.latitude),
     dlon = rad(b.longitude - a.longitude),
@@ -366,7 +367,7 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
                 <footer>
                   <span>
                     <strong>{money(f.hourly_rate)}</strong> / hour
-                    {position && (
+                    {position && f.latitude != null && f.longitude != null && (
                       <small>
                         {distance(position, f).toFixed(1)} km straight-line
                         distance

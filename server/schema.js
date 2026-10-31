@@ -39,6 +39,9 @@ CREATE TABLE IF NOT EXISTS favorites (
  driver_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
  facility_id TEXT NOT NULL REFERENCES facilities(id), PRIMARY KEY(driver_id,facility_id)
 );
+ALTER TABLE facilities ADD COLUMN IF NOT EXISTS location_url TEXT;
+ALTER TABLE facilities ALTER COLUMN latitude DROP NOT NULL;
+ALTER TABLE facilities ALTER COLUMN longitude DROP NOT NULL;
 ALTER TABLE bookings ADD COLUMN IF NOT EXISTS help_resolved_at TIMESTAMPTZ;
 CREATE TABLE IF NOT EXISTS booking_messages (
  id TEXT PRIMARY KEY, booking_id TEXT NOT NULL REFERENCES bookings(id),

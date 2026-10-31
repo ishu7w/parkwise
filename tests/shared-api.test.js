@@ -79,6 +79,18 @@ test("real accounts have separate server-enforced roles and opaque sessions", as
     400,
   );
 });
+test("owner can publish a Google Maps share link without coordinates", async () => {
+  const body = { name: "Shared Link Parking", address: "Test Road, Greater Noida", locationUrl: "https://maps.app.goo.gl/example", floor: "Ground", instructions: "Use the marked entrance.", hourlyRate: 40, standard: 1, accessible: 0, ev: 0 };
+  assert.equal((await request("/owner/facilities", { cookie: owner.cookie, body: { ...body, locationUrl: "https://google.com.evil.test/maps" } })).status, 400);
+  const created = await request("/owner/facilities", { cookie: owner.cookie, body });
+  assert.equal(created.status, 200);
+  const id = created.result.data.id;
+  assert.equal((await request("/owner/facilities/" + id, { cookie: owner.cookie, method: "PATCH", body: { published: true } })).status, 200);
+  const detail = await request("/facilities/" + id);
+  assert.equal(detail.result.data.location_url, body.locationUrl);
+  assert.equal(detail.result.data.latitude, null);
+  assert.equal((await request("/owner/facilities/" + id, { cookie: owner.cookie, method: "PATCH", body: { published: false } })).status, 200);
+});
 test("owner publication exposes actual facility and available categories", async () => {
   const r = await request("/owner/facilities", {
     cookie: owner.cookie,

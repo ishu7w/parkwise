@@ -19,6 +19,12 @@ import {
   BayPlan,
 } from "./Common";
 import { BookingTools } from "./DriverTools";
+const sampleParking = [
+  { id: "sample-pari", name: "Pari Chowk area", address: "Near Pari Chowk, Greater Noida" },
+  { id: "sample-expo", name: "Expo Mart area", address: "Knowledge Park II, Greater Noida" },
+  { id: "sample-venice", name: "Grand Venice area", address: "Surajpur Site IV, Greater Noida" },
+];
+
 function distance(a, b) {
   const rad = (v) => (v * Math.PI) / 180,
     dlat = rad(b.latitude - a.latitude),
@@ -61,7 +67,9 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
   const saved = new Set((garage.data?.favorites || []).map((f) => f.id));
   const listings = useResource("/facilities?" + params);
   const detail = useResource(
-    selected ? "/facilities/" + selected + "?" + params : null,
+    selected && !selected.startsWith("sample-")
+      ? "/facilities/" + selected + "?" + params
+      : null,
   );
   let facilities = (listings.data || []).filter(
     (f) =>
@@ -76,6 +84,10 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
       (a, b) => distance(position, a) - distance(position, b),
     );
   const facility = detail.data;
+  const sample = sampleParking.find((item) => item.id === selected);
+  const matchingSamples = sampleParking.filter((item) =>
+    !onlyAvailable && !onlySaved && `${item.name} ${item.address}`.toLowerCase().includes(q.toLowerCase()),
+  );
   async function locate() {
     if (!navigator.geolocation) {
       setError("Location is unavailable. Search by address instead.");
@@ -291,9 +303,27 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
       {listings.error && <Notice error>{listings.error}</Notice>}
       <div className="pw-discovery-grid">
         <div className="pw-results">
+          {matchingSamples.length > 0 && (
+            <section aria-label="Sample parking locations">
+              <p className="pw-small pw-pad">Sample locations for presentation · not real parking availability</p>
+              {matchingSamples.map((item) => (
+                <button
+                  type="button"
+                  className={"pw-facility-card " + (selected === item.id ? "active" : "")}
+                  key={item.id}
+                  onClick={() => { setSelected(item.id); setError(""); }}
+                >
+                  <div className="pw-facility-top"><span className="pw-eyebrow">Sample location</span></div>
+                  <h2>{item.name}</h2>
+                  <p><MapPin size={15} />{item.address}</p>
+                  <footer><span>Availability and pricing not verified</span><span>View location <ArrowRight size={18} /></span></footer>
+                </button>
+              ))}
+            </section>
+          )}
           {listings.loading ? (
             <div className="pw-empty">Loading available parking…</div>
-          ) : !facilities.length ? (
+          ) : !facilities.length && matchingSamples.length ? null : !facilities.length ? (
             <Empty
               title={
                 q || onlyAvailable || onlySaved
@@ -364,6 +394,15 @@ export function Discover({ user, onSignIn, intent, onBooked }) {
                 arrival instructions and availability.
               </p>
             </div>
+          ) : sample ? (
+            <Panel title="Sample parking location">
+              <div className="pw-pad">
+                <h3>{sample.name}</h3>
+                <p>{sample.address}</p>
+                <p>This is a sample listing near a real landmark. It does not represent a confirmed parking facility, entrance, price or available bay.</p>
+                <p>Reservations are unavailable for sample locations.</p>
+              </div>
+            </Panel>
           ) : detail.loading ? (
             <Panel title="Parking details">
               <p className="pw-pad">Loading facility…</p>

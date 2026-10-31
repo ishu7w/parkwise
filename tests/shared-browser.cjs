@@ -123,6 +123,10 @@ const path = require("node:path");
     await register(driver, "driver");
     const guest = await browser.newPage({ reducedMotion: "reduce" });
     await guest.goto("http://localhost:5175/#Discover");
+    await guest.getByRole("button", { name: /Pari Chowk area/ }).click();
+    await guest.getByText("Reservations are unavailable for sample locations.").waitFor();
+    await guest.getByRole("button", { name: /Expo Mart area/ }).click();
+    await guest.getByText("Knowledge Park II, Greater Noida", { exact: true }).last().waitFor();
     await guest.getByRole("button", { name: /Integration Parking/ }).click();
     await guest.getByLabel("Duration", { exact: true }).selectOption("120");
     await guest
